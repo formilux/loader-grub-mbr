@@ -1,0 +1,11 @@
+--- ./Makefile.orig	Mon Sep 29 14:16:19 2003
++++ ./Makefile	Mon Sep 29 14:16:41 2003
+@@ -213,7 +213,7 @@
+ NOSTDINC_FLAGS  = -nostdinc -iwithprefix include
+ 
+ CPPFLAGS	:= -D__KERNEL__ -Iinclude
+-CFLAGS 		:= $(CPPFLAGS) -Wall -Wstrict-prototypes -Wno-trigraphs -O2 \
++CFLAGS 		:= $(CPPFLAGS) -Wall -Wstrict-prototypes -Wno-trigraphs -Os \
+ 	  	   -fno-strict-aliasing -fno-common
+ AFLAGS		:= -D__ASSEMBLY__ $(CPPFLAGS)
+ 
