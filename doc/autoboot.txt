@@ -1,0 +1,113 @@
+2003/10/01 - Fonctionnement du boot automatique sur un sentineo.
+
+Principe :
+==========
+  - un kernel 2.5 doté de quelques fonctionnalités est chargé
+    depuis lilo. C'est toujours lui qui démarre. On l'appelle
+    l'image de boot.
+  - ce kernel charge un script d'initialisation qui recherche
+    un kernel de prod valide.
+  - une fois le kernel de prod localisé, on le démarre, tout
+    en mémorisant sur le disque un état comme quoi ce noyau a
+    été tenté, afin de ne pas risquer de booter dessus à
+    nouveau s'il plante.
+  - une fois le kernel de prod démarré, on enlève l'indicateur
+    d'état de démarrage en cours pour dire que ce noyau est
+    utilisable.
+
+Remarques :
+============
+  - les images de boot sont des liens symboliques "/boot/active" et
+    "/boot/backup" pointant vers les bzImage correspondants.
+  - si le démarrage précédent ne s'est pas complété, on essaye
+    un noyau alternatif s'il y en a un.
+  - il est possible de forcer le boot désiré au lancement par le
+    paramètre "IMAGE=active" or "IMAGE=backup" en ligne de commande.
+  - si aucun noyau n'est disponible, on passe en mode "recovery",
+    c'est à dire qu'on affecte l'adresse IP 10.0.0.1/16 à l'interface
+    eth0, et qu'on démarre un SSHD miniature. De plus, on présente
+    un prompt à l'utilisateur pour qu'il puisse débugger en local.
+    Au retour de ce mode, l'image sera forcée sur "active" s'il échoue.
+    C'est donc à l'utilisateur de rétablir les options de boot pour
+    repartir sur un noyau propre s'il en veut un autre.
+  - les 4 bits de poids faible du premier octet de la partition
+    /dev/hdc1 sont utilisés pour stocker l'état du dernier boot et
+    la conf souhaitée. Ils sont manipulés par l'outil 'bitcheck' :
+    # bit 0 : default boot     = active(0)/backup(1)
+    # bit 1 : last normal boot = active(0)/backup(1)
+    # bit 2 : last boot        = normal(0)/recovery(1)
+    # bit 3 : last boot        = complete(0)/started(1)
+    
+
+Processus de démarrage :
+========================
+
+   if (last boot OK) {
+      if (default conf == active) {
+          trying=active
+          load(active) && boot(active)
+      } else /* default conf == backup */ {
+          trying=backup
+          load(backup) && boot(backup)
+      }
+   } else if (trying == recovery) {
+      default=active
+      trying=active
+      load (active) && boot(active)
+   } else if (trying == active) {
+      trying=backup
+      load (backup) && boot(backup)
+   } else if /* trying == backup */ {
+      trying=active
+      load (active) && boot(active)
+   }
+
+   /* a ce stade, on a échoué le boot souhaité */
+
+   if (trying == active) {
+      trying=backup
+      load (backup) && boot(backup)
+   } else if /* trying == backup */ {
+      trying=active
+      load (active) && boot(active)
+   }
+
+   /* aucun boot ne fonctionne */
+   trying=recovery
+   set ip address
+   start sshd
+   user prompt
+
+Fichiers nécessaires
+====================
+  - boot/kexec/bzImage (2.5)
+  - boot/kexec/init (binaire)
+  - boot/kexec/preinit (script pour init ci-dessus)
+  - boot/kexec/bitcheck (test/set conf + état)
+  - boot/kexec/kexec (le loader lui-même)
+  - boot/kexec/ip (config adresses+routes)
+  - boot/kexec/dropbear (serveur SSHv2 statique miniature)
+  - boot/kexec/{dsskey,rsakey} (clés DSS/RSA pour dropbear)
+  - etc/lilo.conf avec l'entrée suivante :
+    image = /boot/kexec/bzImage
+    	label = kexec
+    	read-only
+    	root=/dev/root
+    	append="init=/boot/kexec/preinit"
+
+Projet
+======
+->  /data/projets/dev/autoboot/
+Le noyau 2.5.74 nécessite l'application du patch kexec-2.5.74-full.patch.
+
+Limitations
+===========
+  - sentineo n'a pas de watchdog hardware, ce qui nécessite un OFF/ON en cas de
+    plantage pour basculer sur l'autre noyau
+  - kexec-tools compile incorrectement en dietlibc, à cause de getoptlong() qui
+    déconne
+  - dropbear-0.37 compile incorrectement en dietlibc à cause de putenv() qui
+    fait un realloc qui déconne. Un patch fourni augmente la taille initiale de
+    l'environnement pour contourner le problème.
+  - le script preinit est assez gros et dépasse les 4ko initialement supportés
+    par preinit. Il faut donc preinit dans flxutils-0.1.19 qui supporte 16 ko.
