@@ -1,0 +1,11 @@
+--- ./options.h.sav	Tue Sep 30 22:09:36 2003
++++ ./options.h	Tue Sep 30 22:35:33 2003
+@@ -190,7 +190,7 @@
+ 
+ /* the number of NAME=VALUE pairs to malloc for environ, if we don't have
+  * the clearenv() function */
+-#define ENV_SIZE 100
++#define ENV_SIZE 1000
+ 
+ #define MAX_CMD_LEN 1024 /* max length of a command */
+ #define MAX_TERM_LEN 200 /* max length of TERM name */

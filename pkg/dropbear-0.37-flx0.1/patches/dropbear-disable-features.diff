@@ -1,0 +1,39 @@
+--- ./options.h.orig	Tue Sep 30 22:34:15 2003
++++ ./options.h	Tue Sep 30 22:09:32 2003
+@@ -36,22 +36,22 @@
+ #define RSA_PRIV_FILENAME "/etc/dropbear_rsa_host_key"
+ 
+ /* Enable X11 Forwarding */
+-#define ENABLE_X11FWD
++//#define ENABLE_X11FWD
+ 
+ /* Enable TCP Fowarding */
+ /* NOTE: TCP forwarding is still work-in-progress, -L forwarding should work,
+  * -R forwarding isn't implemented yet */
+-#define ENABLE_TCPFWD
++//#define ENABLE_TCPFWD
+ 
+ /* Enable Authentication Agent Forwarding */
+-#define ENABLE_AGENTFWD
++//#define ENABLE_AGENTFWD
+ 
+ /* Encryption - at least one required.
+  * RFC Draft requires 3DES, and recommends Blowfish, AES128 & Twofish128 */
+ #define DROPBEAR_AES128_CBC
+ #define DROPBEAR_BLOWFISH_CBC
+-#define DROPBEAR_TWOFISH128_CBC
+-#define DROPBEAR_3DES_CBC
++//#define DROPBEAR_TWOFISH128_CBC
++//#define DROPBEAR_3DES_CBC
+ 
+ /* Integrity - at least one required.
+  * RFC Draft requires sha1-hmac, and recommends md5-hmac.
+@@ -78,7 +78,7 @@
+ /* Whether to do reverse DNS lookups. This is advisable, though will add
+  * code size with gethostbyname() etc, so for very small environments where
+  * you are statically linking, you might want to undefine this */
+-#define DO_HOST_LOOKUP
++//#define DO_HOST_LOOKUP
+ 
+ /* Authentication types to enable, at least one required.
+    RFC Draft requires pubkey auth, and recommends password */

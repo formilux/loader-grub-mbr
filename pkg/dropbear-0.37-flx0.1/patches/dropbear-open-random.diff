@@ -1,0 +1,11 @@
+--- ./random.c.orig	Tue Sep 30 23:05:13 2003
++++ ./random.c	Tue Sep 30 23:05:44 2003
+@@ -58,7 +58,7 @@
+ 
+ #ifdef DROPBEAR_DEV_URANDOM
+ 	readfd = open(DEV_URANDOM, O_RDONLY);
+-	if (!readfd) {
++	if (readfd < 0) {
+ 		dropbear_exit("couldn't open random device");
+ 	}
+ #endif
