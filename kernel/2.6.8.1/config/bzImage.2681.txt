@@ -1,0 +1,2 @@
+Booter cette image avec "root=2201" sur un sentineo.
+
