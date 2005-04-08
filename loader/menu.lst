@@ -1,0 +1,49 @@
+#
+# boot last working image by default, and allow one failure
+#
+
+hiddenmenu
+
+serial --unit=0 --speed=9600
+terminal serial
+
+default saved
+timeout 2
+fallback 0 1 2 3 4
+
+title active
+   root (hd0,0)
+   savedefault fallback
+   kernel /system/active/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=/dev/hdc1 GRUB_ENTRY=0
+   initrd /system/active/initrd.img 
+
+title active-failed
+   root (hd0,0)
+   savedefault fallback
+   kernel /system/active/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=/dev/hdc1 GRUB_ENTRY=0
+   initrd /system/active/initrd.img 
+
+title backup
+   root (hd0,0)
+   savedefault fallback
+   kernel /system/backup/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=/dev/hdc1 GRUB_ENTRY=2
+   initrd /system/backup/initrd.img 
+
+title backup-failed
+   root (hd0,0)
+   savedefault fallback
+   kernel /system/backup/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=/dev/hdc1 GRUB_ENTRY=2
+   initrd /system/backup/initrd.img 
+
+title firmware
+   root (hd0,0)
+   savedefault 0	# next boot should retry active conf.
+   kernel /firmware/bzimage.2681.ser quiet console=ttyS0,9600
+   initrd /firmware/kexec.cpio.gz
+
+title reboot
+   reboot
+
+title halt
+   halt
+
