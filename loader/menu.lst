@@ -14,25 +14,25 @@ fallback 0 1 2 3 4
 title active
    root (hd0,0)
    savedefault fallback
-   kernel /system/active/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=/dev/hdc1 GRUB_ENTRY=0
+   kernel /system/active/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda1
    initrd /system/active/initrd.img 
 
-title active-failed
+title active(retry)
    root (hd0,0)
    savedefault fallback
-   kernel /system/active/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=/dev/hdc1 GRUB_ENTRY=0
+   kernel /system/active/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda1
    initrd /system/active/initrd.img 
 
 title backup
    root (hd0,0)
    savedefault fallback
-   kernel /system/backup/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=/dev/hdc1 GRUB_ENTRY=2
+   kernel /system/backup/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda1
    initrd /system/backup/initrd.img 
 
-title backup-failed
+title backup(retry)
    root (hd0,0)
    savedefault fallback
-   kernel /system/backup/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=/dev/hdc1 GRUB_ENTRY=2
+   kernel /system/backup/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda1
    initrd /system/backup/initrd.img 
 
 title firmware
