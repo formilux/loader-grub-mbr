@@ -1,6 +1,10 @@
 #!/bin/sh
 SPEED=${1:-115200}
+FILE=${2:-/tmp/file.rx}
+echo "Downloading at $SPEED bps file $FILE."
 oldcfg=$(stty -g)
 stty litout -cstopb clocal -crtscts raw $SPEED
-lrz
+rx $FILE ; ret=$?
 stty $oldcfg
+echo "Return code: $ret"
+exit $ret
