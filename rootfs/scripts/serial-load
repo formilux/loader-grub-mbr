@@ -1,0 +1,6 @@
+#!/bin/sh
+SPEED=${1:-115200}
+oldcfg=$(stty -g)
+stty litout -cstopb clocal -crtscts raw $SPEED
+lrz
+stty $oldcfg
