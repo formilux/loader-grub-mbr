@@ -1,0 +1,182 @@
+1) make partitions
+------------------
+The flash contains 3 partitions :
+
+  - #1 : boot loader + firmware  => may be mounted under /boot/fw
+  - #2 : config + system + tools => mounted in /flash
+  - #3 : persistent data         => mounted in /var/persist
+
+Considering a 64 MB CompactFlash (62 MiB), we would cut it in these
+proportions:
+
+  #1: 2 MB
+  #2: 50 MB
+  #3: 10 MB
+
+1.1) firmware partition
+-----------------------
+Partition 1 is an ext2fs of about 2 MB. It may be created with genext2fs :
+
+  # genext2fs -z -I 256 -r 0 -b 2032 part1.img
+
+If mke2fs is used instead, do not forget to remove lost+found afterwards.
+
+It should be structured like this :
+
+  /
+  /boot
+  /boot/grub     -> stage1, stage2, e2fs_stage1_5, menu.lst
+  /boot/firmware -> kernel.img (, initrd.img)
+  /boot/defaults -> factory defaults files, used to rebuild the system if
+                    needed (eg: a copy of grub-mbr-default)
+
+All chmod -R u-w,og-rwx
+
+It never has any reason to be mounted anywhere, except when searching from some
+factory defaults to rebuild the system.
+
+The exact files needed in the firmware initramfs are :
+
+-r-x------ root/root      2020 2005-05-22 00:10:50 .preinit
+-r-x------ root/root      8196 2005-05-20 17:19:49 init
+drwxrwxr-x root/root         0 2005-05-20 17:58:23 dev/
+drwxrwxr-x root/root         0 2005-05-26 19:01:58 bin/
+-r-x------ root/root    179030 2005-05-20 17:35:23 bin/kexec
+-r-x------ root/root     13260 2005-05-20 17:17:25 bin/grub-mbr-default
+-r-x------ root/root     45361 2005-05-20 20:55:55 bin/mke2fs
+-r-x--x--x root/root     19770 2005-05-26 19:01:58 bin/firmware-cli
+-r-x--x--x root/root       229 2005-05-20 17:19:49 bin/serial-load
+-r-x--x--x root/root    731924 2005-05-20 17:19:49 bin/busybox
+-rwxr-xr-x root/root      6318 2005-05-26 19:01:58 bin/update-boot-image
+(-r-x------ root/root    44784 May 20     18:12    bin/genext2fs)
+
+1.2) system partition
+---------------------
+Partition 2 is an ext2fs of about 50 MB. It should be formated with
+mke2fs (which will take less time than genext2fs) :
+
+  # mke2fs -m 0 -s 1 -b 1024 -N 256 /dev/hde2
+  # tune2fs -c -1 -i 0 /dev/hde2
+
+It should be structured like this :
+
+  /
+  /bin  -> tools (grub-mbr-default, copied from the firmware image)
+  /cfg  -> configuration files
+  /sys  -> system images
+  /sys/active
+  /sys/backup
+
+all chmod -R og-rwx
+Note: the lost+found directory can be removed.
+
+This partition can also be formated with genext2fs (from the firmware
+image), although this can take quite some time :
+
+  # time ./genext2fs -z -I 256 -r 0 -b 49856 /dev/hde2
+  real    1m28.482s
+  user    0m0.000s
+  sys     0m0.150s
+
+An mke2fs statically linked with dietlibc takes 90 kB, while genext2fs takes
+44 kB. However, mke2fs should be better and faster.
+
+2) format the system partition from the firmware image
+------------------------------------------------------
+
+To reduce the risks of formating the wrong partition, we'll do some checks :
+  - the partition must be at least 10000 kB
+  - the previous partition must contain a /boot/firmware/firmware.img file,
+    because it is the firmware partition.
+
+
+Get the system partition name from 'flash=' in /proc/cmdline.
+
+  flash="$(cat /proc/cmdline)"
+  if [ -n "${flash##*flash=*}" ]; then
+    echo "No flash device specified in /proc/cmdline."
+    exit 1
+  fi
+  flash=${flash##*flash=}
+  flash=${flash%% *}
+  [ -n "${flash##/dev/*}" ] && flash="/dev/$flash"
+
+  set -- $(grep " ${flash##/dev/}\$" /proc/partitions)
+  size=$3
+  if [ -n "$size" -a -z "${size##[0-9]*}" ] && [ $size -lt 10000 ]; then
+     echo "Partition too small : $flash=$size kB, please check carefully."
+     exit 1
+  fi
+
+  partnum=${flash##*[^0-9]}
+  radix=${flash%$partnum}
+  
+  if [ -z "${partnum##[0-9]*}" ]; then
+    newpart=$(( $partnum - 1 ))
+    firmware=${radix}${newpart}
+  fi
+
+  umount /mnt/disk >/dev/null 2>&1 || mkdir -p /mnt/disk >/dev/null 2>&1
+  if mount -r $firmware /mnt/disk && \
+    [ -f /mnt/disk/boot/firmware/firmware.img ]; then
+    valid=1
+  else
+    valid=0
+  fi
+  umount /mnt/disk >/dev/null 2>&1
+  if [ $valid -eq 0 ]; then
+    echo "wrong partition"
+    exit 1
+  fi
+
+Now we're sure that $flash represents the right partition.
+Either we format it with genext2fs :
+
+  # genext2fs -z -I 256 -r 0 -b $size $flash
+
+or with a mke2fs :
+
+  # mke2fs -m 0 -s 1 -b 1024 -N 256 $flash
+
+Note: the modified version of mke2fs provided by e2fsprogs-1.37-flash
+      automatically sets the mount count and the interval to 0.
+
+Now we'll rebuild the default directories :
+
+  umount /flash >/dev/null 2>&1 || mkdir -p /flash >/dev/null 2>&1
+  mount $flash /flash
+  chmod 700 /flash
+  rmdir /flash/lost+found >/dev/null 2>&1
+  mkdir -m 700 -p /flash/bin /flash/cfg /flash/sys
+
+  umount /mnt/disk >/dev/null 2>&1 || mkdir -p /mnt/disk >/dev/null 2>&1
+  if mount -r $firmware /mnt/disk && \
+    cp /mnt/disk/boot/defaults/grub-mbr-default /flash/bin/; then
+    chmod 500 /flash/bin/grub-mbr-default
+    valid=1
+  else
+    valid=0
+  fi
+  umount /mnt/disk >/dev/null 2>&1
+  umount /flash
+  # now the partition is ready to accept system images.
+
+
+3) prepare the MBR to boot
+--------------------------
+
+Start grub :
+
+  # grub
+  grub> device (hd0) /dev/hde
+  grub> root (hd0,0)                       # this is hde1 (firmware partition)
+  grub> setup (hd0)
+
+It MUST display "succeeded" on "Running embed /boot...stage1_5", otherwise
+there will be no room for the grub-mbr-default. If it shows "failed", it
+may be because the device has too few sectors per track, in which case it
+needs to be reformated differently. 16 sectors is generally enough.
+
+  grub> quit
+  #
+
