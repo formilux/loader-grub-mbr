@@ -12,34 +12,39 @@ timeout 2
 fallback 0 1 2 3 4
 
 title active
-   root (hd0,0)
+   root (hd0,1)
    savedefault fallback
-   kernel /system/active/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda1
-   initrd /system/active/initrd.img 
+   kernel /sys/active/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda2
+   initrd /sys/active/initrd.img 
 
 title active(retry)
-   root (hd0,0)
+   root (hd0,1)
    savedefault fallback
-   kernel /system/active/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda1
-   initrd /system/active/initrd.img 
+   kernel /sys/active/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda2
+   initrd /sys/active/initrd.img 
 
 title backup
-   root (hd0,0)
+   root (hd0,1)
    savedefault fallback
-   kernel /system/backup/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda1
-   initrd /system/backup/initrd.img 
+   kernel /sys/backup/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda2
+   initrd /sys/backup/initrd.img 
 
 title backup(retry)
-   root (hd0,0)
+   root (hd0,1)
    savedefault fallback
-   kernel /system/backup/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda1
-   initrd /system/backup/initrd.img 
+   kernel /sys/backup/kernel.img ramdisk_size=14000 root=/dev/ram0 ro auto quiet console=ttyS0,9600 flash=hda2
+   initrd /sys/backup/initrd.img 
 
 title firmware
    root (hd0,0)
    savedefault 0	# next boot should retry active conf.
-   kernel /firmware/bzimage.2681.ser quiet console=ttyS0,9600
-   initrd /firmware/kexec.cpio.gz
+   kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 flash=hda2
+
+# development kernel
+title firmware-dev
+   root (hd0,0)
+   savedefault 5	# next boot will stay on the development kernel
+   kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 flash=hda2
 
 title reboot
    reboot
