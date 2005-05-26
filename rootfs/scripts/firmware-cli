@@ -1,0 +1,623 @@
+#!/bin/sh
+
+# this program uses several external programs :
+# tar,mount,umount,mke2fs,serial-load,grub-mbr-default,update-boot-image,wget,tftp
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+SERIAL_BAUD=115200
+DOWNLOAD_SAVE=N
+DOWNLOAD_IMAGE_FILE=/tmp/file.tgz
+FLASH_MNT=/flash
+FLASH_PART=
+FLASH_CMDLINE=
+FLASH_SIZE=0
+FIRMWARE_PART=
+
+# local network configuration
+NET_INTR=eth0
+NET_ADDR=
+NET_MASK=
+NET_GWAY=
+
+# local proxy configuration
+NET_PROX=N
+NET_PROX_HOST=
+NET_PROX_PORT=
+
+# remote server configuration
+NET_REMOTE_MODE=
+NET_REMOTE_HOST=
+NET_REMOTE_PORT=
+NET_REMOTE_PATH=
+
+NET_HOST_FTP=
+NET_HOST_HTTP=
+NET_HOST_RAW=
+NET_HOST_TFTP=
+NET_PORT_FTP=
+NET_PORT_HTTP=
+NET_PORT_RAW=
+NET_PORT_TFTP=
+
+
+# returns 0 if $1 is numerical, otherwise 1.
+do_test_num() {
+  while [ -n "$1" ]; do
+    set -- "${1#[0-9]}"
+    [ -z "${1##[0-9]*}" ] || return 1
+  done
+  return 0
+}
+
+# returns 0 if $1 contains only dots and digits, otherwise 1.
+do_test_dotnum() {
+  while [ -n "$1" ]; do
+    set -- "${1#[0-9.]}"
+    [ -z "${1##[0-9.]*}" ] || return 1
+  done
+  return 0
+}
+
+# Prompts the message in "$1" and waits for the user to acknowledge it by
+# hitting enter.
+do_prompt() {
+  _msg_="$1"
+  _str_=
+  echo -n "${_msg_:+$_msg_. }Press [ENTER] to continue."
+  read _str_ || echo
+}
+
+# Shows an error message and returns
+do_error() {
+  echo "Error: $@"
+}
+
+# Shows an information message and returns
+do_inform() {
+  echo "$@"
+}
+
+# Prompts the message in "$1" and asks for confirmation. Only [ynYN] are
+# permitted. [yY] return 0, [nN] return 1, as well as Ctrl-D.
+do_confirm() {
+  _msg_="$1"
+  _str_=
+  while : ; do
+    echo -n "${_msg_:+$_msg_. }Confirm (Y/N) ? "
+    read _str_
+    [ $? -gt 0 ] && { echo "<Abort>"; return 1; }   # Ctrl-D does not confirm.
+    [ ".$_str_" = ".Y" -o ".$_str_" = ".y" ] && return 0
+    [ ".$_str_" = ".N" -o ".$_str_" = ".n" ] && return 1
+    echo;echo ">>> Please enter only 'Y' or 'N', or press <Ctrl-D> to abort."
+  done
+}
+
+# Prompts the message in "$1" and asks for a value for the variable "$2",
+# which will only be accepted between $3 and $4 (if they exists). The
+# variable is updated. Normally returns 0, except when Ctrl-D has been hit (1).
+do_ask_int() {
+  _msg_="$1"; _var_=$2
+  _low_=${3:-0} ; _high_=$4
+  _cur_="$(eval echo \$$_var_)"
+  _str_=
+  while : ; do
+    echo -n "${_msg_:+$_msg_ }($_low_-$_high_) [$_cur_] ? "
+    read _str_
+    [ $? -gt 0 ] && { echo "<Abort>"; return 1; }   # Ctrl-D aborts.
+    [ -n "$_str_" ] || return 0   # returns keeps the value
+    if do_test_num "$_str_" && [ "$_str_" -ge "$_low_" ]; then
+      if [ -z "$_high_" ] || [ "$_str_" -le $_high_ ]; then
+        eval $_var_=$_str_
+        return 0
+      fi
+    fi
+    echo;echo ">>> Value out of range. Please try again or press <Ctrl-D> to abort."
+  done
+}
+
+# Prompts the message in "$1" and asks for a value for the variable "$2",
+# which will only be accepted if either [yY] or [nN]. The variable is updated.
+# Normally returns 0, except when Ctrl-D has been hit (1).
+do_ask_bool() {
+  _msg_="$1"; _var_=$2
+  _cur_="$(eval echo \$$_var_)"
+  _str_=
+  while : ; do
+    echo -n "${_msg_:+$_msg_ }(Y/N) [$_cur_] ? "
+    read _str_
+    [ $? -gt 0 ] && { echo "<Abort>"; return 1; }   # Ctrl-D aborts.
+    [ -n "$_str_" ] || return 0    # return keeps the value
+
+    [ ".$_str_" = ".y" ] && _str_=Y || [ ".$_str_" = ".n" ] && _str_=N
+
+    if [ ".$_str_" = ".Y" -o ".$_str_" = ".N" ]; then
+      eval $_var_=$_str_
+      return 0
+    fi
+    echo;echo ">>> Please enter only 'Y' or 'N', or press <Ctrl-D> to abort."
+  done
+}
+
+# Prompts the message in "$1" and asks for a value for the variable "$2"
+# which is a string. An empty input does not change the value. The variable
+# is updated. Normally returns 0, except when Ctrl-D has been hit (1).
+do_ask_string() {
+  _msg_="$1"; _var_=$2
+  _cur_="$(eval echo \$$_var_)"
+  _str_=
+  echo -n "${_msg_:+$_msg_ }[$_cur_] ? "
+  read _str_
+  [ $? -gt 0 ] && { echo "<Abort>"; return 1; }   # Ctrl-D aborts.
+  [ -n "$_str_" ] || return 0
+  eval $_var_=$_str_
+  return 0
+}
+
+# Prompts the message in "$1" and asks for an IP address for the variable "$2",
+# which will only be accepted between $3 and $4 (if they exists). The
+# variable is updated. Normally returns 0, except when Ctrl-D has been hit (1).
+do_ask_ip_address() {
+  _msg_="$1"; _var_=$2
+  _low_=${3:-1.0.0.0} ; _high_=${4:-223.255.255.255}
+  _cur_="$(eval echo \$$_var_)"
+  _str_=
+  while : ; do
+    echo -n "${_msg_:+$_msg_ }[$_cur_] ? "
+    read _str_
+    [ $? -gt 0 ] && { echo "<Abort>"; return 1; }   # Ctrl-D aborts.
+    [ -n "$_str_" ] || return 0   # returns keeps the value
+    if do_test_dotnum "${_str_}" && [ "${_str_%%.*}" -ge "${_low_%%.*}" ] \
+       && [ "${_str_%%.*}" -le "${_high_%%.*}" ]; then
+      eval $_var_=$_str_
+      return 0
+    fi
+    echo;echo ">>> Address out of range. Please try again or press <Ctrl-D> to abort."
+  done
+}
+
+
+# Displays a menu consisting in several titles delimited by '|'. Asks for a
+# choice, and returns 1 if the choice is empty, otherwise 0 and the integer
+# value in LINE if it is between 1 and the number of lines, and loops in all
+# other cases until a valid value is entered. The menu title is the first
+# entry in the string.
+do_menu() {
+  _menu_="$*" ; LINE= ; _err_=0
+  echo
+  while : ; do
+    _int_=1
+    _line_="$_menu_"
+    _str_="${_line_%%|*}";_line_="${_line_#$_str_}";_line_="${_line_#|}"
+    echo "$_str_"
+    while [ -n "$_str_" ]; do echo -n '-'; _str_=${_str_#?};done;
+    echo
+    while [ -n "$_line_" ]; do
+      _str_="${_line_%%|*}";_line_="${_line_#$_str_}";_line_="${_line_#|}"
+      echo "  $_int_) $_str_"
+      _int_=$(($_int_+1))
+    done
+    [ "$_err_" -eq 0 ] && echo -n "Choice (or <enter> to exit): " || { echo ">>> Invalid choice!";echo -n "Try again (or <enter> to exit): "; }
+    read LINE ; echo
+    [ -n "$LINE" ] || return 1
+    do_test_num $LINE && [ $LINE -gt 0 ] && [ $LINE -lt $_int_ ] && return 0
+    _err_=1
+  done
+}
+
+
+# this function configures the local network parameters and applies them.
+do_set_local_ip() {
+  i="$NET_INTR"; a="$NET_ADDR"; m="$NET_MASK"; g="$NET_GWAY"
+  do_ask_string "Ethernet interface (ethX)" NET_INTR && [ -n "$NET_INTR" ] || return 1
+  do_ask_ip_address "$NET_INTR: IP address" NET_ADDR && [ -n "$NET_ADDR" ] || return 1
+  if [ ".$a" != ".$NET_ADDR" ]; then
+    # the address has changed, we'll compute the default mask for the user
+    a=${NET_ADDR%%.*}
+    [ $a -lt 224 ] && NET_MASK="255.255.255.0"
+    [ $a -lt 192 ] && NET_MASK="255.255.0.0"
+    [ $a -lt 128 ] && NET_MASK="255.0.0.0"
+  fi
+  do_ask_ip_address "$NET_INTR: IP mask" NET_MASK 0.0.0.0 255.255.255.255 || return 1
+  do_ask_ip_address "$NET_INTR: IP default gateway (- to remove)" NET_GWAY || return 1
+  [ ".$NET_GWAY" = ".-" ] && NET_GWAY=
+
+  do_inform "New network parameters for $NET_INTR: $NET_ADDR/$NET_MASK${NET_GWAY:+ gw $NET_GWAY}."
+  if do_confirm "These parameters will be applied now"; then
+    # shutdown old interface if any
+    [ -n "$i" -a ".$i" = ".$NET_INTR" ] || ifconfig $i down >/dev/null 2>&1
+    if ! ifconfig $NET_INTR $NET_ADDR netmask $NET_MASK up >/dev/null 2>&1; then
+      do_error "There was a problem while setting the interface up with its new address."
+      do_prompt
+      return 1;
+    fi
+    if [ -n "$NET_GWAY" ] && \
+       ! { route del default ;route add default gw $NET_GWAY; } >/dev/null 2>&1; then
+      do_error "There was a problem while setting the default gateway."
+      do_prompt
+      return 1;
+    fi
+    do_inform "Network parameters applied successfully."
+  else
+    do_inform "Network parameters not applied."
+  fi
+  return 0
+}
+
+
+# returns in $REPLY the size in kB of the partition in $1, or 0 if not found.
+get_partition_size() {
+  set -- $(grep " ${1##/dev/}\$" /proc/partitions)
+  REPLY=${3:-0}
+}
+
+# returns 0 if FLASH_PART represents a system partition, otherwise 1.
+# In any case FLASH_SIZE is updated to reflect the partition size in kB,
+# and in case of success, FIRMWARE_PART is updated to reflect the firmware
+# partition.
+do_test_system_partition() {
+  get_partition_size $FLASH_PART
+  FLASH_SIZE=$REPLY
+
+  flash=$FLASH_PART ; size=$FLASH_SIZE
+
+  if [ -n "$size" -a -z "${size##[0-9]*}" ] && [ $size -lt 10000 ]; then
+     do_inform
+     do_error "Partition too small : $flash is $size kB."
+     return 1
+  fi
+
+  partnum=${flash##*[^0-9]}
+  radix=${flash%$partnum}
+  
+  if [ -n "$partnum" -a -z "${partnum##[0-9]*}" ]; then
+    newpart=$(( $partnum - 1 ))
+    firmware=${radix}${newpart}
+  else
+    do_inform
+    do_error "Invalid partition: $flash"
+    return 1
+  fi
+
+  umount /mnt/disk >/dev/null 2>&1 || mkdir -p /mnt/disk >/dev/null 2>&1
+  if mount -r $firmware /mnt/disk >/dev/null 2>&1 && \
+    [ -f /mnt/disk/boot/firmware/firmware.img ]; then
+    valid=1
+  else
+    valid=0
+  fi
+  umount /mnt/disk >/dev/null 2>&1
+  if [ $valid -eq 0 ]; then
+    do_inform
+    do_error "$flash cannot be the system partition because $firmware is not the firmware partition."
+    return 1
+  fi
+  FIRMWARE_PART=$firmware
+  do_inform "This seems to be the right partition - $flash ($size kB)"
+}
+
+# Prompts the user to select the system image.
+do_select_flash() {
+  _old_flash_part="$FLASH_PART"
+  _old_flash_size="$FLASH_SIZE"
+
+  if [ ".$FLASH_PART" != ".$FLASH_CMDLINE" ]; then
+    do_inform "Current system partition selected : $FLASH_PART"
+    do_inform "The bootloader suggests this one  : $FLASH_CMDLINE"
+  fi
+
+  do_ask_string "Select the system partition" FLASH_PART
+  # show the problems to the user if any. 
+  if ! do_test_system_partition; then
+    FLASH_PART="$_old_flash_part"
+    FLASH_SIZE="$_old_flash_size"
+  fi
+  do_inform
+  do_prompt
+}
+
+# This allows the user to reformat the system partition.
+# There are some controls, and it should be relatively safe.
+do_menu_format_flash() {
+  do_test_system_partition >/dev/null 2>&1 || do_select_flash || return 1
+
+  flash="$FLASH_PART"
+  size=$FLASH_SIZE
+
+  do_inform "WARNING! This will destroy all system images and the system may never reboot."
+  do_confirm || return 1
+
+  mke2fs -m 0 -s 1 -b 1024 -N 256 $flash
+  
+  umount $FLASH_MNT >/dev/null 2>&1 || mkdir -p $FLASH_MNT >/dev/null 2>&1
+  mount $flash $FLASH_MNT >/dev/null 2>&1
+  chmod 700 $FLASH_MNT >/dev/null 2>&1
+  rmdir $FLASH_MNT/lost+found >/dev/null 2>&1
+  mkdir -m 700 -p $FLASH_MNT/bin $FLASH_MNT/cfg $FLASH_MNT/sys >/dev/null 2>&1
+
+  umount /mnt/disk >/dev/null 2>&1 || mkdir -p /mnt/disk >/dev/null 2>&1
+  if mount -r $FIRMWARE_PART /mnt/disk >/dev/null 2>&1 && \
+    cp /mnt/disk/boot/defaults/grub-mbr-default $FLASH_MNT/bin/ >/dev/null 2>&1; then
+    chmod 500 $FLASH_MNT/bin/grub-mbr-default >/dev/null 2>&1
+    valid=1
+  else
+    valid=0
+  fi
+  umount /mnt/disk >/dev/null 2>&1
+  umount /flash >/dev/null 2>&1
+  if [ $? -eq 0 -a $valid -eq 1 ]; then
+    do_inform
+    do_inform "Operation terminated successfully. $size kB available for the system."
+    return 0;
+  else
+    do_inform
+    do_inform "An error was encountered while preparing $flash."
+    do_prompt "Please verify that it's the right device or use the shell to fix by hand."
+    return 1;
+  fi
+}
+
+
+# This show the various system images to the user
+do_menu_view_images() {
+  do_test_system_partition >/dev/null 2>&1 || do_select_flash || return 1
+
+  flash="$FLASH_PART"
+  size=$FLASH_SIZE
+
+  do_inform "System partition is $FLASH_PART ($FLASH_SIZE kB)"
+
+  umount $FLASH_MNT >/dev/null 2>&1 || mkdir -p $FLASH_MNT >/dev/null 2>&1
+  mount -r $flash $FLASH_MNT >/dev/null 2>&1
+  active="not present" ; backup=$active
+  [ -r $FLASH_MNT/sys/active/kernel.ver ] && \
+    active=$(cat $FLASH_MNT/sys/active/kernel.ver 2>/dev/null)
+
+  [ -r $FLASH_MNT/sys/backup/kernel.ver ] && \
+    backup=$(cat $FLASH_MNT/sys/backup/kernel.ver 2>/dev/null)
+
+  do_inform "Active image version : $active"
+  do_inform "Backup image version : $backup"
+  umount $FLASH_MNT >/dev/null 2>&1
+  do_inform
+  do_prompt
+  return 0
+}
+
+
+# Asks for the various serial port parameters and starts the serial image
+# download. Returns 0 if transfer OK or 1 if failed or aborted.
+
+do_serial_download() {
+  do_ask_int  "Baud rate" SERIAL_BAUD 38400 115200 || return 1
+  do_inform
+  do_inform   "Configure your terminal to use Xmodem at $SERIAL_BAUD/N/8/1"
+  do_confirm  "Ready to start transfer" || return 1
+  if serial-load $SERIAL_BAUD $DOWNLOAD_IMAGE_FILE; then
+    while ! do_confirm "Transfer successful. You must be able to read this now"; do
+      do_inform "Make sure that you reset your terminal settings after the file transfer."
+    done
+    return 0
+  else
+    while ! do_confirm "Transfer failed. You must be able to read this now"; do
+      do_inform "Make sure that you reset your terminal settings after the file transfer."
+    done
+    return 1
+  fi
+}
+
+# Asks for the various serial port parameters and starts the network image
+# download. It takes only one parameter : the transfer mode, which can be :
+# HTTP, FTP, TFTP, RAW. Returns 0 if transfer OK, 1 if failed or aborted.
+#
+# for HTTP/FTP, we use wget : wget [-c] -O local_file ftp://10.0.3.2:21/remote_file
+# for TFTP, we use tftp     : tftp -g -r remote_file -l local_file 10.0.3.2 69
+# for RAW, we user netcat   : nc 10.0.3.2 4000 > local_file
+
+do_network_download() {
+  mode="$1" ; port= ; proto= ;
+  case "$mode" in
+    HTTP) proto=http ; port=80 ;;
+     FTP) proto=ftp  ; port=21 ;;
+    TFTP) proto=tftp ; port=69 ;;
+     RAW) proto=raw  ; port=4000 ;;
+       *) do_inform
+          do_error "Unknown network transfer mode : '$mode'"
+          do_prompt
+          return 1
+          ;;
+  esac
+
+  # set local network parameters
+  do_set_local_ip || return 1
+
+  if [ "$mode" != "$NET_REMOTE_MODE" ];then
+    NET_REMOTE_MODE=$mode
+    NET_REMOTE_PORT=$port
+  fi
+
+  if [ "$mode" = "HTTP" -o "$mode" = "FTP" ]; then
+    do_ask_bool "Use a proxy server" NET_PROX || return 1
+    if [ "$NET_PROX" = "Y" ]; then
+      do_ask_ip_address "Enter proxy server IP address" NET_PROX_HOST || return 1
+      do_ask_int "Enter proxy server port" NET_PROX_PORT 1 65535 || return 1
+    fi
+  fi
+
+  do_ask_ip_address "Enter $mode server IP address" NET_REMOTE_HOST || return 1
+  do_ask_int "Enter $mode server port" NET_REMOTE_PORT 1 65535 || return 1
+
+  if [ "$mode" != "RAW" ]; then
+    do_ask_string "Path to the file on the $mode server" NET_REMOTE_PATH || return 1
+  fi
+
+  do_inform ; do_inform "Transfer parameters :"
+  do_inform "    Server  : $proto://$NET_REMOTE_HOST:$NET_REMOTE_PORT"
+  do_inform "    Filename: $NET_REMOTE_PATH"
+  if [ "$NET_PROX" = "Y" ]; then
+    do_inform "    Proxy   : $NET_PROX_HOST:$NET_PROX_PORT"
+  else
+    do_inform "    Proxy   : none"
+  fi
+  do_inform
+  do_confirm "The transfer will start with these parameters" || return 1
+
+  if [ "$mode" = "HTTP" -o "$mode" = "FTP" ]; then
+    # we don't handle download resuming yet.
+    rm -f $DOWNLOAD_IMAGE_FILE >/dev/null 2>&1
+    arg="-O $DOWNLOAD_IMAGE_FILE -Y"
+    [ "$NET_PROX" = "Y" ] && arg="$arg on"      || arg="$arg off"
+    arg="$arg $proto://$NET_REMOTE_HOST:$NET_REMOTE_PORT/"
+    http_proxy=http://$NET_PROX_HOST:$NET_PROX_PORT ftp_proxy=ftp://$NET_PROX_HOST:$NET_PROX_PORT \
+      wget $arg"$NET_REMOTE_PATH"
+    if [ $? -eq 0 ]; then
+      do_inform "Image downloaded successfully"
+    else
+      do_inform
+      do_error "Wget reported an error during the download process."
+      do_prompt
+      return 1
+    fi
+  elif [ "$mode" = "TFTP" ]; then
+    rm -f $DOWNLOAD_IMAGE_FILE >/dev/null 2>&1
+    tftp -g -l $DOWNLOAD_IMAGE_FILE -r "$NET_REMOTE_PATH" $NET_REMOTE_HOST $NET_REMOTE_PORT
+    if [ $? -eq 0 ]; then
+      do_inform
+      do_inform "Image downloaded successfully"
+    else
+      do_inform
+      do_error "TFTP client reported an error during the download process."
+      do_prompt
+      return 1
+    fi
+  elif [ "$mode" = "RAW" ]; then
+    rm -f $DOWNLOAD_IMAGE_FILE >/dev/null 2>&1
+    nc $NET_REMOTE_HOST $NET_REMOTE_PORT > $DOWNLOAD_IMAGE_FILE
+    if [ $? -eq 0 ]; then
+      do_inform "Image downloaded successfully"
+    else
+      do_inform
+      do_error "TCP client reported an error during the download process."
+      do_prompt
+      return 1
+    fi
+  fi # mode
+  return 0
+}
+
+# Generic function to load an image, can be both from serial port or network.
+do_menu_download_image() {
+  do_menu "Download image|Download from serial port|Download from an HTTP server|Download from an FTP server|Download from a TFTP server|Download from a RAW TCP server"
+  case $LINE in
+    1) do_serial_download       && return 0 ;;
+    2) do_network_download HTTP && return 0 ;;
+    3) do_network_download FTP  && return 0 ;;
+    4) do_network_download TFTP && return 0 ;;
+    5) do_network_download RAW  && return 0 ;;
+  esac
+  return 1
+}
+
+# checks if the recently downloaded flash image is valid, then saves it if the
+# user wants to do so. Saving involves several external commands :
+# - update-boot-image [-d flash_part] image
+
+#### FIXME !!! THIS IS INCOMPLETE #####
+
+do_check_and_save_image() {
+  do_inform "Checking the image..."
+  update-boot-image -n -q $DOWNLOAD_IMAGE_FILE
+  err=$?
+  do_inform
+  case $err in
+    0) do_confirm "Image is valid. Save this image" || return 0 ;;
+    2) do_prompt "This image is invalid ! Please try another image." ; return 1 ;;
+    *) do_prompt "Internal error. Please retry, reboot then report." ; return 1 ;;
+  esac
+  do_inform "Please wait one minute while writing to flash..."
+  update-boot-image -q $DOWNLOAD_IMAGE_FILE
+  err=$?
+  do_inform
+  # Note that if we get errors on flash access but the valid image remains in memory,
+  # we return zero so that we know that we can still boot this image from memory.
+  case $err in
+  0|5) true ;;
+    2) do_prompt "This image is invalid ! Please try another image." ; return 1 ;;
+    3) do_prompt "Cannot access flash. Please format it."; return 0 ;;
+    4) do_prompt "Cannot write to flash. Please unprotect or format it."; return 0 ;;
+    *) do_prompt "Internal error. Please retry, reboot then report." ; return 1 ;;
+  esac
+  if [ $err = 5 ]; then
+    do_error "Failed to save the image. I need to delete the current image."
+    do_confirm "The system will be unusable until successful save" || return 0
+    do_inform "Please wait one minute while writing to flash..."
+    if ! update-boot-image -f -q $DOWNLOAD_IMAGE_FILE -d $FLASH_PART; then
+      do_inform
+      do_error "Failed to save the image. You may have to reformat the partition."
+      do_prompt
+      return 0 ;  # 0 because we still can use the image in memory
+    fi
+  fi
+  do_inform
+  do_inform "New image has been saved and activated as the default one."
+  do_prompt
+  return 0
+}
+
+# main menu which never returns.
+do_menu_main() {
+  while : ; do
+    while do_menu "Main menu|Select system partition ($FLASH_PART = $FLASH_SIZE kB)|View images|Download image|Boot an image|Change default image|Delete image|Change default config|Delete config|Shell|Format system partition|Reboot|Exit(dangerous)"; do
+      case $LINE in
+        1) do_select_flash ;;
+        2) do_menu_view_images ;;
+        3) do_menu_download_image && do_check_and_save_image ;;
+        4) do_menu_boot_image ;;
+        5) do_menu_change_default_image ;;
+        6) do_menu_delete_image ;;
+        7) do_menu_change_default_config ;;
+        8) do_menu_delete_config ;;
+        9) do_inform "Type 'exit' to leave this shell.";/bin/sh ;;
+        10) do_menu_format_flash ;;
+        11) do_confirm "Ready to REBOOT" && reboot ;;
+        12) exit 0 ;;
+      esac
+    done
+    #echo "No default menu"
+  done
+}
+
+########### init functions ###########
+
+init_flash_from_cmdline() {
+  flash="$(cat /proc/cmdline)"
+  if [ -n "${flash##*flash=*}" ]; then
+    do_inform "No flash device specified on the boot-loader command line."
+    FLASH_CMDLINE="none"
+    FLASH_PART="none"
+    return 1
+  fi
+  flash=${flash##*flash=}
+  flash=${flash%% *}
+  [ -n "${flash##/dev/*}" ] && flash="/dev/$flash"
+  FLASH_CMDLINE="$flash"
+  FLASH_PART="$flash"
+  FLASH_SIZE=0
+#  get_partition_size $FLASH_PART
+#  FLASH_SIZE=$REPLY
+  if ! do_test_system_partition >/dev/null 2>&1; then
+    FLASH_PART=""
+    FLASH_SIZE=0
+    FIRMWARE_PART=""
+  fi
+}
+
+########### main ###########
+
+clear
+do_inform " --- Firmware utility version 0.1 --- "
+
+init_flash_from_cmdline
+
+do_menu_main
