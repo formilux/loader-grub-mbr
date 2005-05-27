@@ -1,0 +1,235 @@
+Création d'un noyau avec initramfs :
+
+- le compiler avec support initrd (block devices, ramdisk, initrd)
+- compiler klibc pour avoir les bons outils pas trop gros
+- créer un initramfs avec les bons outils et /init
+
+Rem: on peut activer -mregmarm=3 et le compiler en GCC-3.4 pour réduire encore
+la taille compresée du noyau de 20 ko.
+
+Pour compiler klibc, faire un lien symbolique 'linux' vers le répertoire
+des sources du noyau déjà configurées :
+
+  # cd klibc-0.179
+  # ln -s /usr/src/linux-2.6.8.1 linux
+  # make -j 4 CC=gcc-3.3.4
+
+Quelques outils fournis avec klibc sont compilés par la même occasion,
+en particulier un shell (ash).
+
+L'image initramfs doit être déposée sous le nom initramfs_data.cpio
+dans le répertoire 'usr' du noyau juste avant le make bzImage. C'est
+'/init' qui sera éxécuté au boot. L'image doit être déposée manuellement
+au dernier moment (mais n'est pas détruite entre les compilations).
+Pour la générer :
+
+  # cd linux-2.6/usr
+  # mkdir root
+  ### recopier par exemple 'sh' dans 'init'
+  # cp ../../klibc-*/ash/sh root/init
+  # cd root
+  #  > Pour une raison encore inconnue, il faut que l'entrée /dev/console soit
+  #  > absolument renseignée sinon on a droit à un kernel panic.
+  #  > rem: c'est peut-être init qui meurt quand il n'a pas son stdin
+  #  >      par exemple devant un 'wk'.
+  # mkdir dev
+  # mknod dev/console c 5 1
+  # find . -printf "%P\n" | grep . | cpio -o -H newc > ../initramfs_data.cpio
+
+Si elle provient d'ailleurs, la recopier juste avant la fin de la compilation :
+
+  # cd linux-2.6
+  # make -j 4 CC=gcc-3.3.4
+  # <...>
+  # cp $dir/initramfs_data.cpio usr/
+  # make CC=gcc-3.3.4
+
+Remarque: certaines images (trop grosses ?) provoquent des erreurs et segfault
+sur les outils de fabrication des images incluses dans le kernel... Il ne faut
+pas hésiter à supprimer du répertoire usr tout ce qui n'est pas *.c, *.S,
+Makefile, faire un make, puis puis mettre son fichier dedans et relancer la
+création de l'image.
+
+On peut compresser l'image résultante avec upx-1.93, cela fonctionne très bien:
+
+# cp arch/i386/boot/bzImage bzImage.upx
+# upx --best --crp-ms=99999 bzImage.upx
+
+Pour booter dessus, il n'y a besoin de rien. Le kernel exécute en priorité
+/init sur l'initramfs, et ne montera le root que plus tard.
+
+Le loader preinit semble très approprié pour remplacer /init, mais
+dans ce cas, il faut le faire fonctionner comme ceci, et pas comme un
+initrd :
+
+  /init = le binaire
+  /.preinit = le script utilisant /init comme loader
+
+
+Un initrd utiliserait pour sa part :
+
+  /linuxrc = binaire
+  /.linuxrc = script .preinit utilisant /linuxrc comme interpréteur
+  /init = lien vers .linuxrc
+
+Voir preinit-simple.cfg pour un exemple de boot facile.
+
+========= Remarque intéressante ===========
+
+les initramfs sont cumulables ! 
+Si l'on spécifie un initrd au kernel, celui-ci sera interprété comme une
+autre image cpio compressée, et sera extrait par-dessus le premier, ce qui
+permet de le compléter.
+
+Pour en créer un (ne pas mettre console s'il y a le .preinit) :
+
+# for i in .preinit init dev bin bin/busybox bin/kexec bin/serial-load \
+    bin/update-boot-image bin/mke2fs bin/firmware-cli bin/grub-mbr-default; \
+    do echo $i;done | cpio -o -H newc | gzip -9 >img.gz
+
+Attention: bug bizarre sur initrd+initramfs : le /.preinit de l'initramfs a été
+réécrit par celui de l'initrd mais pas tronqué !
+
+========= compilation de kexec ============
+
+kexec ne compile malheureusement pas avec klibc :
+  - en 1.8, il nécessite getopt_long(). Pas trop dur à modifier
+  - en 1.98, il nécessite en plus syscall(), pas trop difficile non plus.
+  - dans les deux cas, il faut passer plein d'includes à la main et
+    changer la méthode de linkage. L'exemple suivant fonctionne presque,
+    en supposant que kexec-tools ait été détaré dans klibc :
+
+    # make CC=gcc-3.3.4 CPPFLAGS="-I./util_lib/include -DVERSION='\$(VERSION)' -DRELEASE_DATE='\$(DATE)' \$(EXTRA_FLAGS) -D__KLIBC__ -DBITSIZE=32 -I$PWD/../include/arch/i386 -I$PWD/../include/bits32 -I$PWD/../include -I$PWD/../linux/include -I$PWD/../linux/include2 -I$PWD/../linux/include"
+    # ld  -o objdir/build/sbin/kexec ../klibc/crt0.o  ./objdir/kexec/*.o  ./objdir/libutil.a  ../klibc/libc.a /usr/lib/gcc-lib/i586-pc-linux-gnu/3.3.4/libgcc.a
+
+Pour le moment, il est compilé en statique avec une glibc un peu énorme
+(il n'est pas compatible diet), mais il faudrait aussi essayer avec uclibc.
+=> !! UPDATE !! kexec compile en dietlibc si l'on ajoute "-lcompat".
+
+Pour une raison encore inconnue, kexec-1.101 provoque un oops lors du chargement d'une image avec un
+initrd alors que le 1.98 fonctionne (noyau 2.6.8.1). => C'est réglé sur 2.6.12-rc4-mm2.
+
+Les options réellement nécessaires sont peu nombreuses, comme en témoigne la ligne
+de commande suivante :
+ # /boot/kexec/kexec -l --command-line="auto ro root=/dev/hdc1" /boot/active
+ou
+ # /boot/kexec/kexec -l --command-line="auto ro ramdisk_size=14000 root=/dev/ram0 $(cat /flash/sys/2.4.27-wt6-boot/args.cfg)" --initrd=/flash/sys/2.4.27-wt6-boot/initrd.img /flash/sys/2.4.27-wt6-boot/kernel.img
+
+puis :
+ # /boot/kexec/kexec -e
+
+Rem: kexec ne fonctionne pas dans vmware (segfault pendant kexec -e).
+
+============ proposition d'organisation des fichiers ===============
+
+File-system de boot monté dans /flash pour ne pas faire de conflit avec
+les modules qui pourraient se trouver dans /boot depuis un autre file-system.
+
+/flash/boot/   => le boot loader uniquement
+   - boot.b, lilo.conf, map, etc...
+
+/flash/firmware/ => le kernel de kexec et les outils de recovery uniquement
+   - bzimage.2681.ser (chattr +i)
+   - kexec.cpio.gz    (chattr +i)
+   - recovery.cpio.gz (chattr +i)
+
+/flash/system/ => les kernels de travail répartis comme ceci :
+   1.3.124/             => un répertoire par version de firmware (ici, 1.3.124)
+   1.3.124/kernel.img   => le bzimage correspondant à ce firmware
+   1.3.124/initrd.img   => l'initrd associé à ce firmware
+   1.3.124/kernel.arg     => des paramètres spécifiques à ce firmware (ex: acpi=off)
+
+=> pb: gestion de la notion d'actif/backup au niveau de l'image avec les numéros de version.
+La solution serait de positionner des liens symboliques sur les FS qui les supportent, ou de
+renommer le répertoire après extraction (sur vfat ou ext2) :
+  - extraction de 1.3.124
+  - check 1.3.124 -> ko: suppression, sinon continuer
+  - supprimer backup
+  - mv active backup
+  - mv 1.3.124 active
+  - grub-set-default 0 (avec "active" dans le 0)
+
+
+ou plutôt :
+   active/             => répertoire de l'image par défaut
+   active/kernel.img   => le bzimage correspondant à cette image
+   active/initrd.img   => l'initrd associé à cette image
+   active/kernel.arg   => des paramètres spécifiques à cette image (ex: acpi=off)
+   active/kernel.ver   => version exacte de cette image (ex: "1.3.124")
+   backup/             => ancien répertoire 'active'
+   backup/kernel.img
+   backup/initrd.img
+   backup/kernel.arg
+   backup/kernel.ver   => version exacte de cette image (ex: "1.3.124")
+
+/flash/cfg/    => les configs
+   # plus nécessaire # firmware.cur  => fichier d'une ligne contenant le numero de version du firmware courant
+   # plus nécessaire # firmware.bak  => numero de version du firmware précédent
+   system.arg    => paramètres locaux additionnels à passer aux images (ex: console=ttyS0,115200)
+   # plus nécessaire # firmware.log  => messages d'erreur retournés lors des derniers échecs de chargement de firmware
+
+   config.cur    => tar.gz (ou cpio.gz) contenant la config courante (/etc)
+   config.bak    => tar.gz (ou cpio.gz) contenant la config précédente
+   config.log    => messages d'erreurs retournés lors du dernier échec de chargement de config
+
+   config.fac    => config usine (chattr +i) . Rem: devrait être incluse dans le rootfs afin d'être sûr de pouvoir la trouver.
+
+Dans ce cas, on repose un peu plus sur les possibilités de fallback de grub et moins sur le
+kernel de recovery.
+-> il n'est plus toujours nécessaire
+-> le boot prend moins de temps
+-> on peut donc l'enrichir en outils
+
+=> reste le problème de temps de boot sur les flash USB !
+
+---------------
+Pour grub, lors du setup, voir les possibilités de la commande :
+
+grub> embed stage1_5 device
+(doit embarquer stage1_5 dans le boot-loader, ce qui doit réduire le temps de chargement)
+
+
+----- utilisation de grub-set-default pour repositionner l'entrée active ------
+
+# entry=$(sed -ne 's/^\(.*GRUB_ENTRY=\)\([0-9]*\)\(.*\)/\2/p' </proc/cmdline)
+# [ -n "$entry" ] && ./grub-set-default --root-directory=/mnt/disk $entry   
+
+Ca nécessite que le file-system soit monté en R/W. On peut aussi utiliser grub pour
+récupérer le mapping du fichier 'default' pour éviter de monter le file-system en
+écriture :
+
+# (echo 'root (hd0,0)';echo blocklist /boot/grub/default;echo quit)|./grub --no-config-file --read-only --batch --no-floppy 2>&1 |grep '^('
+(hd0,0)2186+1
+^^^^^^ ^^^^ ^
+  |      |  |_ ?
+  |      |_ offset * 512 octets
+  |_ device
+
+Autre solution avec debugfs (en ext2 seulement) qui retourne les offsets en kilo-octets :
+
+# echo 'bmap /boot/grub/default 0' |debugfs /dev/hdc1 2>/dev/null |cut -f2 -d:
+  1093
+
+
+Donc :
+
+###
+
+# FIXME: we should first ensure that /dev/hdc1 is mounted R/O !
+entry=$(sed -ne 's/^\(.*GRUB_ENTRY=\)\([0-9]*\)\(.*\)/\2/p' </proc/cmdline)
+if [ -n "$entry" ]; then
+  addr=$((echo 'root (hd0,0)';echo blocklist /boot/grub/default;echo quit)|./grub --no-config-file --read-only --batch --no-floppy 2>&1 |grep '^(')
+  start=${addr##*)} ; start=${start%%+*}
+  : ### attention au 'hdc1', pas moyen dans grub de lui faire cracher ses mappings
+  echo $entry | dd of=/dev/hdc1 bs=512 seek=$start count=1
+fi
+###
+
+!!! ATTENTION, il arrive que les données accédées directement sur le disque ne
+!!! reflètent pas celles du FS, même après un sync, remountr, etc...  Après le
+!!! reboot, c'était OK.
+
+#####
+
+Penser à ajouter "panic=1" au firmware
+
