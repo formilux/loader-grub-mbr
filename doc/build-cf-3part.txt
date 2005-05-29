@@ -4,7 +4,7 @@ The flash contains 3 partitions :
 
   - #1 : boot loader + firmware  => may be mounted under /boot/fw
   - #2 : config + system + tools => mounted in /flash
-  - #3 : persistent data         => mounted in /var/persist
+  - #3 : persistent data         => mounted in /nv
 
 Considering a 64 MB CompactFlash (62 MiB), we would cut it in these
 proportions:
@@ -12,6 +12,16 @@ proportions:
   #1: 2 MB
   #2: 50 MB
   #3: 10 MB
+
+Or if you need an RW partition and no backup :
+
+  #1:  2 MB
+  #2: 22 MB
+  #3: 10 MB
+  #4: 28 MB
+
+You MUST ensure that the format will provide at least 16 sectors/track,
+otherwise GRUB will partly fail later.
 
 1.1) firmware partition
 -----------------------
@@ -31,6 +41,8 @@ It should be structured like this :
                     needed (eg: a copy of grub-mbr-default)
 
 All chmod -R u-w,og-rwx
+Everything is already stored in bootfs.tgz, except the model-specific files
+such as firmware.img and menu.lst which must be copied separately.
 
 It never has any reason to be mounted anywhere, except when searching from some
 factory defaults to rebuild the system.
@@ -52,6 +64,8 @@ drwxrwxr-x root/root         0 2005-05-26 19:01:58 bin/
 
 1.2) system partition
 ---------------------
+Note: this can be done directly from the firmware.
+
 Partition 2 is an ext2fs of about 50 MB. It should be formated with
 mke2fs (which will take less time than genext2fs) :
 
@@ -179,4 +193,20 @@ needs to be reformated differently. 16 sectors is generally enough.
 
   grub> quit
   #
+
+4) Format the /nv partition
+------------------------------------
+
+  # modprobe mtdblock
+  # DEVICE=/dev/hdc3
+  # tr '\000' '\377' </dev/zero | dd of=$DEVICE bs=64k
+
+Ignore the following message :
+  dd: writing `/dev/hdc3': No space left on device
+  110+1628 records in
+  109+1628 records out
+
+  # modprobe blkmtd device=$DEVICE erasesz=64
+  # mount -t jffs2 /dev/mtdblock0 /nv
+
 
