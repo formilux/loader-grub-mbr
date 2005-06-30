@@ -1,3 +1,6 @@
+2005/06/30
+
+
 1) make partitions
 ------------------
 The flash contains 3 partitions :
@@ -36,7 +39,7 @@ It should be structured like this :
   /
   /boot
   /boot/grub     -> stage1, stage2, e2fs_stage1_5, menu.lst
-  /boot/firmware -> kernel.img (, initrd.img)
+  /boot/firmware -> firmware.img
   /boot/defaults -> factory defaults files, used to rebuild the system if
                     needed (eg: a copy of grub-mbr-default)
 
@@ -67,7 +70,8 @@ drwxrwxr-x root/root         0 2005-05-26 19:01:58 bin/
 Note: this can be done directly from the firmware.
 
 Partition 2 is an ext2fs of about 50 MB. It should be formated with
-mke2fs (which will take less time than genext2fs) :
+mke2fs (which will take less time than genext2fs), but can be entirely
+prepared by the firmware code :
 
   # mke2fs -m 0 -s 1 -b 1024 -N 256 /dev/hde2
   # tune2fs -c -1 -i 0 /dev/hde2
@@ -98,7 +102,7 @@ An mke2fs statically linked with dietlibc takes 90 kB, while genext2fs takes
 2) format the system partition from the firmware image
 ------------------------------------------------------
 
-To reduce the risks of formating the wrong partition, we'll do some checks :
+To reduce the risks of formating the wrong partition, we do some checks :
   - the partition must be at least 10000 kB
   - the previous partition must contain a /boot/firmware/firmware.img file,
     because it is the firmware partition.
