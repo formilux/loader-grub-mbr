@@ -1,0 +1,17 @@
+## To create the menu.lst for a particular flash partition, use menu.tmpl :
+
+# sed -e 's/%FLASH%/hdc2/g' <menu.tmpl >menu-hdc2.lst
+
+LD model  Hardware   Partition
+  60      Neris      /dev/hdc2
+ 100      Neo        /dev/hdc2
+ 100R     NSA 1041   /dev/hdc2
+ 300R     NSA 1045   /dev/hdc2
+1000R     NSA 1046   /dev/hda2
+
+---
+
+Note : the ramdisk_size should be set at compile-time in the kernel and not
+on the boot loader command-line.
+
+
