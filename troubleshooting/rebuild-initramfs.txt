@@ -1,0 +1,16 @@
+sudo install -d -o root -g root -m 755 tmp/{dev,bin}
+sudo install    -o root -g root -m 500 rootfs/scripts/preinit tmp/.preinit
+sudo install    -o root -g root -m 500 rootfs/prebuilt/init tmp/init
+sudo install    -o root -g root -m 511 rootfs/prebuilt/busybox rootfs/prebuilt/grub-mbr-default tmp/bin/
+sudo install    -o root -g root -m 500 rootfs/prebuilt/kexec-1.101.upx tmp/bin/kexec
+sudo install    -o root -g root -m 500 rootfs/scripts/{firmware-cli,serial-load,update-boot-image} tmp/bin/
+
+sudo tar -C tmp/ --no-recursion -cf - .preinit init dev \
+     bin/{,busybox,kexec,serial-load,update-boot-image,firmware-cli,grub-mbr-default} \
+     | gzip -c9 >rootfs/firmware-files-new.tgz
+
+tar ztf rootfs/firmware-files-new.tgz | (cd tmp; sudo cpio -o -H newc) > initramfs_data-new.cpio
+
+echo "Vérifier les fichiers rootfs/firmware-files-new.tgz et initramfs_data-new.cpio"
+echo "Ensuite, les renommer et supprimer le répertoire 'tmp'."
+

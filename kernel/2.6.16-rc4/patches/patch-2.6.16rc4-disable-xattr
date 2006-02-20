@@ -1,0 +1,86 @@
+This makes extended attributes syscalls depend on CONFIG_XATTR.
+
+--- ./fs/Makefile.bad	Sat Feb 18 07:12:17 2006
++++ ./fs/Makefile	Sat Feb 18 11:47:17 2006
+@@ -9,9 +9,10 @@
+ 		block_dev.o char_dev.o stat.o exec.o pipe.o namei.o fcntl.o \
+ 		ioctl.o readdir.o select.o fifo.o locks.o dcache.o inode.o \
+ 		attr.o bad_inode.o file.o filesystems.o namespace.o aio.o \
+-		seq_file.o xattr.o libfs.o fs-writeback.o mpage.o direct-io.o \
++		seq_file.o libfs.o fs-writeback.o mpage.o direct-io.o \
+ 		ioprio.o pnode.o drop_caches.o
+ 
++obj-$(CONFIG_XATTR)		+= xattr.o
+ obj-$(CONFIG_INOTIFY)		+= inotify.o
+ obj-$(CONFIG_EPOLL)		+= eventpoll.o
+ obj-$(CONFIG_COMPAT)		+= compat.o compat_ioctl.o
+--- ./kernel/sys_ni.c.bad	Sat Feb 18 07:12:23 2006
++++ ./kernel/sys_ni.c	Sat Feb 18 11:55:14 2006
+@@ -114,3 +114,19 @@
+ cond_syscall(ppc_rtas);
+ cond_syscall(sys_spu_run);
+ cond_syscall(sys_spu_create);
++
++/* syscalls which are generally not needed in embedded systems */
++/* extended attributes */
++cond_syscall(sys_setxattr);
++cond_syscall(sys_lsetxattr);
++cond_syscall(sys_fsetxattr);
++cond_syscall(sys_getxattr);
++cond_syscall(sys_lgetxattr);
++cond_syscall(sys_fgetxattr);
++cond_syscall(sys_listxattr);
++cond_syscall(sys_llistxattr);
++cond_syscall(sys_flistxattr);
++cond_syscall(sys_removexattr);
++cond_syscall(sys_lremovexattr);
++cond_syscall(sys_fremovexattr);
++
+--- ./include/linux/syscalls.h.bad	Sat Feb 18 07:12:23 2006
++++ ./include/linux/syscalls.h	Sat Feb 18 11:52:00 2006
+@@ -569,4 +569,45 @@
+ asmlinkage long compat_sys_openat(unsigned int dfd, const char __user *filename,
+ 				   int flags, int mode);
+ 
++asmlinkage long
++sys_setxattr(char __user *path, char __user *name, void __user *value,
++             size_t size, int flags);
++
++asmlinkage long
++sys_lsetxattr(char __user *path, char __user *name, void __user *value,
++              size_t size, int flags);
++
++asmlinkage long
++sys_fsetxattr(int fd, char __user *name, void __user *value,
++              size_t size, int flags);
++
++asmlinkage ssize_t
++sys_getxattr(char __user *path, char __user *name, void __user *value,
++             size_t size);
++
++asmlinkage ssize_t
++sys_lgetxattr(char __user *path, char __user *name, void __user *value,
++              size_t size);
++
++asmlinkage ssize_t
++sys_fgetxattr(int fd, char __user *name, void __user *value, size_t size);
++
++asmlinkage ssize_t
++sys_listxattr(char __user *path, char __user *list, size_t size);
++
++asmlinkage ssize_t
++sys_llistxattr(char __user *path, char __user *list, size_t size);
++
++asmlinkage ssize_t
++sys_flistxattr(int fd, char __user *list, size_t size);
++
++asmlinkage long
++sys_removexattr(char __user *path, char __user *name);
++
++asmlinkage long
++sys_lremovexattr(char __user *path, char __user *name);
++
++asmlinkage long
++sys_fremovexattr(int fd, char __user *name);
++
+ #endif

@@ -1,0 +1,58 @@
+
+# If possible, compile this package with GCC-3.4 or GCC-3.3, they
+# produce much smaller code. Proceed like this :
+# FLXCROSS= CC=gcc-3.4 pkg compile
+
+PATCH_LIST="kexec-bzimage-short-options.diff kexec-fix-error-strings.diff kexec-use-ldflags.diff"
+FILE_LIST=
+
+FLXARCH=$FLX_ARCH_SMALL
+
+function do_upx {
+   upx --best --crp-ms=999999 -o $1.upx $1 \
+   && mv $1.upx $1 \
+   && ( /sbin/chpax -m $1 2>/dev/null; /sbin/paxctl -m $1 2>/dev/null; true )
+}
+
+function do_config_diet {
+    CC="diet ${CC##*/} $GCC_ARCH_SMALL $GCC_OPT_SMALL" \
+      LIBS="-lcompat" \
+      ./configure --prefix=/usr --sbindir=/sbin --without-zlib
+}
+
+function do_config_static {
+    CC="$CC $GCC_ARCH_SMALL $GCC_OPT_SMALL" \
+      LDFLAGS="-static" \
+      ./configure --prefix=/usr --sbindir=/sbin --without-zlib
+}
+
+function do_config_uclibc {
+    CC="uclibc $CC $GCC_ARCH_SMALL $GCC_OPT_SMALL" \
+      LDFLAGS="-static" \
+      ./configure --prefix=/usr --sbindir=/sbin --without-zlib
+}
+
+function do_config_normal {
+    CC="$CC $GCC_ARCH_SMALL $GCC_OPT_SMALL" \
+      ./configure --prefix=/usr --sbindir=/sbin --without-zlib
+}
+
+function do_config {
+    do_config_uclibc
+}
+
+function do_compile_only {
+    $FLXPMAKE
+}
+
+function do_prepack {
+    $FLXMAKE install DESTDIR=$ROOTDIR
+    set_default_perm $ROOTDIR
+    chmod 500 $ROOTDIR/usr/lib/kexec-tools/kexec_test
+}
+
+function pre_pack {
+    sstrip $ROOTDIR/sbin/kexec
+    do_upx $ROOTDIR/sbin/kexec
+}
+

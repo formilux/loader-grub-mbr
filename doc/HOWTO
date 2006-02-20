@@ -1,0 +1,73 @@
+#
+# 1) Prepare the environment
+#
+# - kernel 2.6.15, patch 2.6.16-rc4
+# - kernel config files in the following format : config-<kver>-<fwver>-<platform>
+# - ~400 MB free for the kernel (or 150 after kernel unpacking)
+# - the standalone 'lzma' utility in the path from lzma422 (on the 7zip site)
+#
+
+
+#
+# 2) Prepare 2.6.16-rc4-ld
+#
+
+cp -al linux-2.6.15 linux-2.6.16-rc4
+bzcat patch-2.6.16-rc4.bz2 | patch -Nsp1 -d linux-2.6.16-rc4
+cp -al  linux-2.6.16-rc4 linux-2.6.16-rc4-ld
+
+# Copy config files and patches :
+cp -a $LANDEF/boot/kernel/2.6.16-rc4/{configs,patches} linux-2.6.16-rc4-ld/
+
+# Copy the initramfs
+mkdir linux-2.6.16-rc4-ld/prebuilt/
+cp -a $LANDEF/boot/initramfs_data.cpio linux-2.6.16-rc4-ld/prebuilt/
+
+# Apply the patches :
+cd linux-2.6.16-rc4-ld
+for i in patches/*; do
+   patch -Nsp1 -i $i
+done
+
+
+#
+# 3) build the kernels
+#
+
+mkdir -p output
+
+unset KBUILD_OUTPUT
+make mrproper
+for config in configs/config-*; do
+  cfgname=${config##*/}
+  cfgname=${cfgname#config-2*-}
+  export KBUILD_OUTPUT=$PWD/output/${cfgname}
+  mkdir -p $KBUILD_OUTPUT
+  cp $config $KBUILD_OUTPUT/.config
+  make -j 3 clean
+  make oldconfig
+  echo
+  echo "Compiling ${cfgname}..."
+  if time -p make -j 3 bzImage CC="gcc-3.4" cmd_lzmaramfs="lzma e \$< \$@ -d19" > output/build-${cfgname}.log 2>&1; then
+    cp $KBUILD_OUTPUT/arch/i386/boot/bzImage output/firmware-${cfgname}.img
+    echo "Done."
+  else
+    echo "Failed !!!"
+    echo; echo "Tail of output/build-${cfgname}.log :"
+    echo " ------ "
+    tail -10 output/build-${cfgname}.log
+    echo " ------ "
+  fi
+  echo
+done
+unset KBUILD_OUTPUT
+
+#
+# => The firmwares are ready in output/firmware-<fwver>-<platform>.img
+#
+# To clean up : rm -rf output
+#
+
+echo "The following firmware files are available in 'output/' :"
+(cd output ; ls -l firmware-*.img)
+exit 0

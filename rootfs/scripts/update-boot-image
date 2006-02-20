@@ -1,0 +1,262 @@
+#!/bin/sh
+
+## Usage :
+##   $ update-boot-image [-k] [-h] [-n] [-q] [-f] [-v] [-m mntdir] [-d device] $DIR/image.tgz
+##     -h : show this help
+##     -n : just check the image and do not change anything
+##     -q : be quiet
+##     -f : force removal of both old images if required
+##     -d : use this flash device if not mounted yet
+##     -v : show a valid image version even in quiet mode
+##     -m : use the pre-mounted flash FS <mntdir>
+##     -k : keep the temporary files and output the directory name.
+##   Use -n -q -v to get the image version only.
+##       -n -q -k to extract the image and get access to the files.
+## 
+## Return codes :
+##    0 : everything OK
+##    1 : internal error (may go away after a clean reboot)
+##    2 : invalid or corrupted image
+##    3 : cannot get access to flash (possibly wrong device)
+##    4 : cannot modify flash (may need reformat)
+##    5 : not enough space on flash, but removable dirs exist
+## 
+#
+# This script needs :
+# grep, cut, mount, umount, grub-mbr-default in its PATH, /proc mounted, and flash unmounted.
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+FORCE=
+DRYRUN=
+QUIET=
+FLASH=
+FLASHDIR=/flash
+MOUNTED=
+MOUNTED_RO=
+SHOW_VERSION=
+KEEP_FILES=
+
+while [ $# -gt 0 ]; do
+  [ -z "${1##-*}" ] || break
+  if [ ".$1" = ".-f" ]; then FORCE=1
+  elif [ ".$1" = ".-n" ]; then DRYRUN=1
+  elif [ ".$1" = ".-q" ]; then QUIET=1
+  elif [ ".$1" = ".-v" ]; then SHOW_VERSION=1
+  elif [ ".$1" = ".-k" ]; then KEEP_FILES=1
+  elif [ ".$1" = ".-d" ]; then
+    FLASH="$2"
+    shift
+  elif [ ".$1" = ".-m" ]; then
+    FLASHDIR="$2"
+    shift
+  else
+    if [ ".$1" = ".-h" ]; then
+      err=0
+    else
+      echo "Unknown argument: $1"
+      err=1
+    fi
+    grep "^## " $0 | cut -f2- -d' '
+    exit $err
+  fi
+  shift
+done
+
+if [ $# -lt 1 ]; then
+  echo "Missing argument."
+  grep "^##" $0 | cut -f2- -d' '
+  exit 1
+fi
+
+FILE="$1"
+seq=1
+TEMP="/tmp/temp-$$_$seq"
+
+do_exit_ok() {
+  [ -n "$MOUNTED" ] && \
+    ( [ -n "$MOUNTED_RO" ] && mount -ro remount $FLASHDIR || umount $FLASHDIR ) >/dev/null 2>&1
+  if [ -n "$TEMP" ]; then
+    [ -z "$KEEP_FILES" ] && rm -rf $TEMP >/dev/null 2>&1 || echo "$TEMP"
+  fi
+  exit 0
+}
+
+# exits with the code passed in the first argument if any, otherwise with 1.
+do_exit_error() {
+  err=$1
+  [ -n "$MOUNTED" ] && \
+    ( [ -n "$MOUNTED_RO" ] && mount -ro remount $FLASHDIR || umount $FLASHDIR ) >/dev/null 2>&1
+  if [ -n "$TEMP" ]; then
+    [ -z "$KEEP_FILES" ] && rm -rf $TEMP >/dev/null 2>&1 || echo "$TEMP"
+  fi
+  exit ${err:-1}
+}
+
+while [ $seq -lt 1000 ] && ! mkdir "$TEMP" >/dev/null 2>&1; do
+  seq=$(($seq+1))
+  TEMP="/tmp/temp-$$_$seq"
+done
+
+if [ $seq -ge 1000 ]; then
+  [ -z "$QUIET" ] && echo "Cannot make tmp dir."
+  do_exit_error 1
+fi
+
+if [ -d "$FLASHDIR/sys" ]; then
+  MOUNTED_RO=1
+else
+  FLASHDIR="$TEMP/.mnt"
+  if ! mkdir -p $FLASHDIR >/dev/null 2>&1; then
+    [ -z "$QUIET" ] && echo "Cannot create mount point."
+    do_exit_error 1
+  fi
+fi
+
+if [ ! -r "$FILE" ]; then
+  [ -z "$QUIET" ] && echo "Image unreadable."
+  do_exit_error 1
+fi
+
+(cd $TEMP && tar zxf - >/dev/null 2>&1) < $FILE
+# we don't check the return code because gzip can return false errors
+# because of additionnal bytes resulting from various upload methods.
+# The md5 is the only valid test.
+
+#if [ $? -gt 0 ]; then
+#  [ -z "$QUIET" ] && echo "Cannot extract image."
+#  do_exit_error 2
+#fi
+
+if ! (cd $TEMP/* ; md5sum -c system.sig >/dev/null 2>&1); then
+  [ -z "$QUIET" ] && echo "Corrupted image."
+  do_exit_error 2
+fi
+
+[ -z "$QUIET" ] && echo "Valid image."
+
+if [ -n "$SHOW_VERSION" ]; then
+  IMGVER=$(cat $TEMP/*/kernel.ver 2>/dev/null)
+  [ -n "$IMGVER" ] && echo "$IMGVER" || echo "unknown"
+fi
+
+[ "$DRYRUN" = 1 ] && do_exit_ok
+
+if [ -z "$FLASH" ]; then
+  flash="$(cat /proc/cmdline)"
+  if [ -n "${flash##*flash=*}" ]; then
+    [ -z "$QUIET" ] && echo "Unknown flash device."
+    do_exit_error 3
+  fi
+  flash=${flash##*flash=}
+  flash=${flash%% *}
+  FLASH="$flash"
+fi
+[ -n "${FLASH##/dev/*}" ] && FLASH="/dev/$FLASH"
+
+if [ -n "$MOUNTED_RO" ]; then
+  if ! mount -wo remount $FLASHDIR >/dev/null 2>&1; then
+    umount $FLASHDIR >/dev/null 2>&1
+  else
+    MOUNTED=1
+  fi
+fi
+
+if [ -n "$MOUNTED" ] && ! mount -wo remount $FLASHDIR >/dev/null 2>&1 || \
+  ! mount $FLASH $FLASHDIR >/dev/null 2>&1; then
+  [ -z "$QUIET" ] && echo "Cannot mount flash."
+  do_exit_error 3
+else
+  MOUNTED=1
+fi
+
+rm -rf $FLASHDIR/sys/tmp >/dev/null 2>&1
+if mv $TEMP/* $FLASHDIR/sys/tmp >/dev/null 2>&1; then
+  if [ -e "$FLASHDIR/sys/active" -a -e "$FLASHDIR/sys/backup" ]; then
+    if ! rm -rf "$FLASHDIR/sys/backup" >/dev/null 2>&1; then
+      rm -rf $FLASHDIR/sys/tmp >/dev/null 2>&1
+      [ -z "$QUIET" ] && echo "Cannot remove old image."
+      do_exit_error 4
+    fi
+  fi
+  if ( [ -e "$FLASHDIR/sys/active" ] && \
+     ! mv "$FLASHDIR/sys/active" "$FLASHDIR/sys/backup" >/dev/null 2>&1) || \
+     ! mv "$FLASHDIR/sys/tmp" "$FLASHDIR/sys/active" >/dev/null 2>&1; then
+    rm -rf $FLASHDIR/sys/tmp >/dev/null 2>&1
+    [ -z "$QUIET" ] && echo "Cannot install new image."
+    do_exit_error 4
+  fi
+else
+  # mv failed. The tmp dir might contain incomplete files.
+  rm -rf $FLASHDIR/sys/tmp >/dev/null 2>&1
+  if [ ! -e "$FLASHDIR/sys/active" -a ! -e "$FLASHDIR/sys/backup" ]; then
+    rm -rf $FLASHDIR/sys/tmp >/dev/null 2>&1
+    [ -z "$QUIET" ] && echo "Try to reformat flash."
+    do_exit_error 4
+  fi
+
+  if [ -e "$FLASHDIR/sys/active" -a -e "$FLASHDIR/sys/backup" ]; then
+    if ! rm -rf "$FLASHDIR/sys/backup" >/dev/null 2>&1; then
+      rm -rf $FLASHDIR/sys/tmp >/dev/null 2>&1
+      [ -z "$QUIET" ] && echo "Cannot remove old image."
+      do_exit_error 4
+    fi
+  fi
+
+  if mv $TEMP/* $FLASHDIR/sys/tmp >/dev/null 2>&1 ; then
+    if [ ! -e "$FLASHDIR/sys/active" -a ! -e "$FLASHDIR/sys/backup" ]; then
+      rm -rf $FLASHDIR/sys/tmp >/dev/null 2>&1
+      [ -z "$QUIET" ] && echo "Try to reformat flash."
+      do_exit_error 4
+    elif ( [ -e "$FLASHDIR/sys/active" ] && \
+      ! mv "$FLASHDIR/sys/active" "$FLASHDIR/sys/backup" ) || \
+      ! mv "$FLASHDIR/sys/tmp" "$FLASHDIR/sys/active"; then
+      rm -rf $FLASHDIR/sys/tmp >/dev/null 2>&1
+      [ -z "$QUIET" ] && echo "Cannot install new image."
+      do_exit_error 4
+    fi
+  else
+    if [ -z "$FORCE" ]; then
+      [ -z "$QUIET" ] && echo "Need to remove all images."
+      do_exit_error 5
+    fi
+
+    if ! rm -rf "$FLASHDIR/sys/active" "$FLASHDIR/sys/backup" >/dev/null 2>&1; then
+      [ -z "$QUIET" ] && echo "Cannot remove all images."
+      rm -rf $FLASHDIR/sys/tmp >/dev/null 2>&1
+      do_exit_error 4
+    fi
+
+    if mv $TEMP/* $FLASHDIR/sys/tmp >/dev/null 2>&1 ; then
+      rm -rf $FLASHDIR/sys/tmp >/dev/null 2>&1
+      [ -z "$QUIET" ] && echo "Try to reformat flash."
+      do_exit_error 4
+    fi
+  fi
+fi
+
+if ( [ -n "$MOUNTED_RO" ] && mount -ro remount $FLASHDIR || umount $FLASHDIR ) >/dev/null 2>&1; then
+  MOUNTED=0
+fi
+
+flashnum=${FLASH##*[^0-9]}
+mbr=${FLASH%$flashnum}
+mbrdev=${mbr##/dev/}
+while [ -n "$mbrdev" ] && ! grep -q " $mbrdev\$" /proc/partitions; do
+  mbrdev=${mbrdev%?}
+done
+
+if [ -z "$mbrdev" ]; then
+  [ -z "$QUIET" ] && echo "MBR not found."
+  do_exit_error 3
+fi
+                     
+# activate first boot image
+if ! grub-mbr-default ${QUIET:+-q} /dev/$mbrdev 0; then
+  [ -z "$QUIET" ] && echo "Cannot change active image."
+  do_exit_error 4
+fi
+
+[ -z "$QUIET" ] && echo "Active image updated."
+do_exit_ok

@@ -1,0 +1,14 @@
+- kexec NE FONCTIONNE PAS avec gcc-4.0. Il se plante pendant le kexec -e. Par
+  contre, il fonctionne avec gcc-3.4.
+- le kernel patché avec initrd-lzma ne boote pas si compilé en GCC 4.0.0/4.0.2
+- le kernel ne boote pas sur SIS900 si le driver CONFIG_SIS900=y
+- 3C905 fonctionne et ne perturbe pas kexec
+- le patch vmlinuz-lzma est 100% compatible avec l'image (executée+chargée)
+- l'option CONFIG_FORCED_INLINING n'a pas d'effet
+- l'option CONFIG_DOUBLEFAULT n'a pas d'effet
+- l'option CONFIG_REGPARM est compatible et réduit le code
+- l'option CONFIG_4KSTACKS semble OK mais le code est plus gros.
+- le code en mode pentium est 3 ko plus gros que i486
+- le code en mode i486 est 2 ko plus gros que i386
+- le NSA1046 nécessite à la fois CONFIG_PCI_MMCONFIG et CONFIG_ACPI pour
+  accéder au PCI Express.

@@ -1,0 +1,27 @@
+#### update kexec :
+
+ifconfig eth0 10.0.3.5 up
+mount /dev/hdc1 /flash/
+nc -lp4000 >/flash/boot/defaults/kexec
+umount /flash
+
+#### update image :
+
+ifconfig eth0 10.0.3.5 up
+mount /dev/hdc1 /flash/
+nc -lp4000 >/flash/boot/firmware/firmware.img
+umount /flash
+
+#### kexec sur la même image :
+
+mount -r /dev/hdc1 /flash/
+/flash/boot/defaults/kexec -l /flash/boot/firmware/firmware.img -c "console=ttyS0,9600 panic=1 flash=hdc2"
+/flash/boot/defaults/kexec -e -x
+
+#### kexec sur une autre image :
+
+mount -r /dev/hdc1 /flash/
+mount -r /dev/hdc2 /mnt/disk/
+/flash/boot/defaults/kexec -l /mnt/disk/2.4.32-inj4.krn -c "root=/dev/ram0 rw initrd console=ttyS0,9600 init=/bin/init 4" -i /mnt/disk/2.4.32-inj4.ird
+/flash/boot/defaults/kexec -e -x
+

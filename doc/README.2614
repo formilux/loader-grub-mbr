@@ -1,0 +1,63 @@
+Fabrication de l'image firmware du LANDEF :
+
+Le répertoire kernel/ contient le nécessaire pour faire le noyau, et le répertoire
+rootfs contient le nécessaire pour refabriquer l'image root.
+
+1) assemblage des sources du noyau
+----------------------------------
+
+- récupérer noyau linux-2.6.14 et l'extraire dans linux-2.6.14
+- appliquer kexec (from where ?)
+- appliquer patch-2.6.14.5
+- appliquer patch-2.6.14-tiny1
+- appliquer sk98lin_v8.28.1.3_2.6.14_patch
+- appliquer patch-2.6.12-rc4-mm2-panel-0.9.4
+- appliquer patch-2.6.12-fnoalign
+- appliquer patch-2.6.12-serial-no-printk
+- copier config-2614sk98panel dans .config
+  Cette config est compatible Light System, NSA1041, NSA1045, NSA1046 et VMWare. Elle
+  supporte les chips réseau PCNET32, Realtek 8100/8139, Intel e100, Intel e1000 et Marvell.
+- faire un "make oldconfig"
+
+
+2) construction de l'image firmware
+-----------------------------------
+
+La méthode de compilation des différents outils n'est pas traitée ici.
+Extraire les binaires contenus dans firmware-files.tgz dans un répertoire vide, et convertir
+cette image en format CPIO :
+
+ # mkdir tmp
+ # tar -C tmp -zxf rootfs/firmware-files.tgz
+ # tar ztf rootfs/firmware-files.tgz | (cd tmp ; cpio -o -H newc) > initramfs_data.cpio
+ # rm -rf tmp
+
+
+3) compilation du noyau
+-----------------------
+
+- installer 7zip (7za) sur la machine de compilation pour obtenir un meilleur taux
+  de compression sur GZIP
+
+- copier l'image cpio dans /tmp :
+ # cp initramfs_data.cpio /tmp/
+
+- compiler comme ceci :
+
+ # cd $KERNELDIR ; make -j 3 bzImage \
+     CC="gcc-3.4 -mregparm=3" \
+     cmd_gzip="7za a -tgzip -mx9 -mpass=4 -so -si . <\$< >\$@" 
+
+- à la fin, le fichier "bzImage" doit faire un peu plus d'un méga-octet et contient à la
+  fois le noyau et le rootfs. On le conservera sous le nom "firmware.img"
+
+ # cp $KERNELDIR/arch/i386/boot/bzImage firmware.img
+
+
+4) préparation de l'image de boot
+---------------------------------
+
+Extraire l'archive loader/bootfs.tgz sur la première partition de la flash.
+Recopier le noyau fraîchement généré "firmware.img" dans le répertoire boot/firmware
+de la flash.
+
