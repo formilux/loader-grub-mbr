@@ -30,8 +30,8 @@ cmd_path      := patch
 cmd_bzip2     := bzip2
 cmd_find      := find
 cmd_patch     := patch
-cmd_kgcc      := gcc-3.4     # WARNING! gcc-4.0.[012] produces bad kexec code !
-cmd_lzma      := lzma        # see doc/lzma-howto.txt for this
+cmd_kgcc      := gcc-3.4 # WARNING! gcc-4.0.[012] produces bad kexec code !
+cmd_lzma      := lzma    # see doc/lzma-howto.txt for this
 cmd_make      := $(MAKE)
 
 ########################################################################
@@ -45,12 +45,12 @@ endif
 ######## end of configuration, beginning of the standard targets #######
 
 help:
-	@echo "Usage: make < help | check | rootfs | firmware | clean | mrproper | distclean >"
+	@echo "Usage: make < help | check | rootfs | kernel | clean | mrproper | distclean >"
 	@echo "  Use 'check' to check your build environment."
 	@echo "  Use 'mrproper' to clean the 'build' directory and temp files."
 	@echo "  Use 'distclean' to clean everything including final files."
 	@echo "  Use 'rootfs' FIRST to build only the initramfs."
-	@echo "  Use 'firmware' to build the whole firmware image for the following platforms:"
+	@echo "  Use 'kernel' to build the final firmware image for the following platforms :"
 	@echo "      >> $(PLATFORMS) <<"
 	@echo
 
@@ -84,7 +84,7 @@ endif
 	@echo -n "Checking cmd_find ($(cmd_find)) : "
 	@$(cmd_find) /dev/null >/dev/null 2>&1 && echo "OK" || echo "Failed"
 	@echo -n "Checking cmd_kgcc ($(cmd_kgcc)) : "
-	@$(cmd_kgcc) -c -xc /dev/null > /dev/null && echo "OK" || echo "Failed"
+	@$(cmd_kgcc) -c -xc -o /dev/null /dev/null && echo "OK" || echo "Failed"
 	@echo -n "Checking cmd_lzma ($(cmd_lzma)) : "
 	@$(cmd_lzma) e -si -so </dev/null >/dev/null 2>&1 && echo "OK" || echo "Failed. See doc/lzma-howto.txt"
 	@echo -n "Checking cmd_make ($(cmd_make)) : "
@@ -105,8 +105,11 @@ reallyclean: distclean
 	rm -rf $(SOURCE_DIR)
 
 
-############# now the "real" targets #############
+###########################################################################
+## WARNING ! NO USER SERVICEABLE PARTS BELOW. RISK OF ELECTRIC SHOCK !!! ##
+###########################################################################
 
+############ now the "real" targets #############
 #### rootfs (initramfs)
 rootfs: $(INITRAMFS)
 
@@ -163,14 +166,14 @@ $(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
 	  echo "  - cleaning everything and updating config...";              \
 	  $(cmd_make) clean ;                                                 \
 	  $(cmd_make) oldconfig > $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,config-%.log,$@); \
-	  echo "  - compiling kernel $(KVER) for $${KBUILD_OUTPUT##*/}..."; \
+	  echo "  - compiling kernel $(KVER) for $${KBUILD_OUTPUT##*/}...";   \
 	  if $(cmd_make) bzImage                                              \
 	        CC="$(cmd_kgcc)" cmd_lzmaramfs="$(cmd_lzma) e \$$< \$$@ -d19" \
 	     > $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,build-%.log,$@) 2>&1; then  \
 	    ln $${KBUILD_OUTPUT}/arch/i386/boot/bzImage $@;                   \
 	  else                                                                \
 	    echo "Failed !!!"; echo ;                                         \
-	    echo "Tail of output/build-$${KBUILD_OUTPUT##*/}.log :";        \
+	    echo "Tail of output/build-$${KBUILD_OUTPUT##*/}.log :";          \
 	    echo " ------ ";                                                  \
 	    tail -10 $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,build-%.log,$@);      \
 	    echo " ------ ";                                                  \
