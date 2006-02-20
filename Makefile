@@ -1,3 +1,6 @@
+# set to anything other than empty to see commands being executed
+V =
+
 FWVER     = 0.3
 BASE_KVER = 2.6.15
 KVER      = 2.6.16-rc4
@@ -8,16 +11,15 @@ BUILD_DIR     := $(CURDIR)/build
 SOURCE_DIR    := $(CURDIR)/sources
 
 INITRAMFS     := $(FINAL_DIR)/initramfs_data.cpio
-
 KDIR          := $(BUILD_DIR)/kernel/linux-$(KVER)
 
-TEMP_FILES    := 
+TEMP_FILES    := $(KDIR)/output $(KDIR)/prebuilt/initramfs_data.cpio
 PERM_FILES    := $(INITRAMFS)
 
-# set to anything other than empty to see commands being executed
-V =
+# Use the configuration suffixes to determine the list of platforms
+PLATFORMS     := $(shell x=( $$(echo kernel/$(KVER)/configs/*) ); echo $${x[@]\#\#*-})
 
-# various commands
+# various commands which can be overridden by the command line.
 
 cmd_sudo      := sudo
 cmd_gzip      := gzip
@@ -28,9 +30,9 @@ cmd_path      := patch
 cmd_bzip2     := bzip2
 cmd_find      := find
 cmd_patch     := patch
-cmd_kgcc      := gcc-3.4
-cmd_lzma      := lzma
-cmd_make      := make
+cmd_kgcc      := gcc-3.4     # WARNING! gcc-4.0.[012] produces bad kexec code !
+cmd_lzma      := lzma        # see doc/lzma-howto.txt for this
+cmd_make      := $(MAKE)
 
 ########################################################################
 
@@ -43,13 +45,53 @@ endif
 ######## end of configuration, beginning of the standard targets #######
 
 help:
-	@echo "Usage: make < rootfs | help | clean | mrproper | distclean >"
+	@echo "Usage: make < help | check | rootfs | firmware | clean | mrproper | distclean >"
+	@echo "  Use 'check' to check your build environment."
 	@echo "  Use 'mrproper' to clean the 'build' directory and temp files."
 	@echo "  Use 'distclean' to clean everything including final files."
+	@echo "  Use 'rootfs' FIRST to build only the initramfs."
+	@echo "  Use 'firmware' to build the whole firmware image for the following platforms:"
+	@echo "      >> $(PLATFORMS) <<"
 	@echo
 
+check:
+	@echo -n "Checking /dev/null existence : "
+	@[ -c /dev/null ] && echo "OK" || echo "Failed"
+	@echo -n "Checking source directory : "
+	@[ -d "$(SOURCE_DIR)/." ] && echo "OK" || echo "Failed"
+
+	@echo -n "Checking kernel source linux-$(BASE_KVER).tar.bz2 : "
+	@[ -s "$(SOURCE_DIR)/linux-$(BASE_KVER).tar.bz2" ] && echo "OK" || echo "$(cmd_make) rootfs will fail."
+
+ifneq ($(KVER),$(BASE_KVER))
+	@echo -n "Checking kernel source patch-$(KVER).bz2 : "
+	@[ -s "$(SOURCE_DIR)/patch-$(KVER).bz2" ] && echo "OK" || echo "$(cmd_make) rootfs may fail."
+endif
+	@echo -n "Checking cmd_gzip ($(cmd_gzip)) : "
+	@$(cmd_gzip) -c9 </dev/null >/dev/null 2>&1 && echo "OK" || echo "Failed"
+	@echo -n "Checking cmd_bzip2 ($(cmd_bzip2)) : "
+	@$(cmd_bzip2) -c9 </dev/null >/dev/null 2>&1 && echo "OK" || echo "Failed"
+	@echo -n "Checking cmd_sudo ($(cmd_sudo)) : "
+	@$(cmd_sudo) true 2>/dev/null && echo "OK" || echo "Failed"
+	@echo -n "Checking cmd_cpio ($(cmd_cpio)) : "
+	@echo /dev/null | $(cmd_cpio) -o -H newc >/dev/null 2>&1 && echo "OK" || echo "Failed"
+	@echo -n "Checking cmd_tar ($(cmd_tar)) : "
+	@$(cmd_tar) -cf - /dev/null >/dev/null 2>&1 && echo "OK" || echo "Failed"
+	@echo -n "Checking cmd_install ($(cmd_install)) : "
+	@$(cmd_install) --version >/dev/null 2>&1 && echo "OK" || echo "Failed"
+	@echo -n "Checking cmd_patch ($(cmd_patch)) : "
+	@$(cmd_patch) --version >/dev/null 2>&1 && echo "OK" || echo "Failed"
+	@echo -n "Checking cmd_find ($(cmd_find)) : "
+	@$(cmd_find) /dev/null >/dev/null 2>&1 && echo "OK" || echo "Failed"
+	@echo -n "Checking cmd_kgcc ($(cmd_kgcc)) : "
+	@$(cmd_kgcc) -c -xc /dev/null > /dev/null && echo "OK" || echo "Failed"
+	@echo -n "Checking cmd_lzma ($(cmd_lzma)) : "
+	@$(cmd_lzma) e -si -so </dev/null >/dev/null 2>&1 && echo "OK" || echo "Failed. See doc/lzma-howto.txt"
+	@echo -n "Checking cmd_make ($(cmd_make)) : "
+	@$(cmd_make) --version >/dev/null 2>&1 && echo "OK" || echo "Failed"
+
 clean:
-#	rm -f $(TEMP_FILES)
+	@[ -z "$(TEMP_FILES)" ] || rm -rf $(TEMP_FILES)
 
 mrproper: clean
 	$(cmd_sudo) rm -rf $(BUILD_DIR)
@@ -58,10 +100,12 @@ distclean: mrproper
 	rm -f $(PERM_FILES)
 	rm -rf $(FINAL_DIR)
 
+# Undocumented 'reallyclean' also cleans the source directory !
 reallyclean: distclean
 	rm -rf $(SOURCE_DIR)
 
-######## now the "real" targets ########
+
+############# now the "real" targets #############
 
 #### rootfs (initramfs)
 rootfs: $(INITRAMFS)
@@ -93,39 +137,54 @@ $(BUILD_DIR)/rootfs.installed: rootfs/scripts/preinit rootfs/prebuilt/init rootf
 	$(Q) touch $@
 
 #### kernel
-kernel: $(FINAL_DIR)/firmware-$(FWVER)-nsa1041.img
+# Note: This part is really tricky because it is used to iterate through
+# all platforms by producing dynamic rules. The difficulty is then to get
+# the platform's name back within the scripts, 
+kernel: $(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%.img,$(PLATFORMS))
 
-$(FINAL_DIR)/firmware-$(FWVER)-nsa1041.img: $(KDIR)/output/firmware-$(FWVER)-nsa1041.img
+$(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
+  $(FINAL_DIR)/firmware-$(FWVER)-%.img: $(KDIR)/output/firmware-$(FWVER)-%.img
+
 	$(Q) cp $< $@
-	@echo "Firmware $(FWVER) for nsa1041 is available here :"
+	@echo "Firmware $(FWVER) for $(patsubst $(FINAL_DIR)/firmware-$(FWVER)-%.img,%,$@) is available here :"
 	@echo "  -> $@"
 
-$(KDIR)/output/firmware-$(FWVER)-nsa1041.img: $(KDIR)/.patched $(KDIR)/prebuilt/initramfs_data.cpio kernel/$(KVER)/configs/config-$(KVER)-$(FWVER)-nsa1041
-	@echo "Building firmware version $(FWVER) for nsa1041..."
+$(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
+  $(KDIR)/output/firmware-$(FWVER)-%.img: \
+  kernel/$(KVER)/configs/config-$(KVER)-$(FWVER)-% \
+  $(KDIR)/.patched $(KDIR)/prebuilt/initramfs_data.cpio
+	@echo "Building firmware version $(FWVER) for $(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,%,$@)..."
 	$(Q) rm -f $@
 	$(Q) mkdir -p $(KDIR)/configs $(KDIR)/output
-	$(Q) mkdir -p $(KDIR)/output/nsa1041
-	$(Q) cp kernel/$(KVER)/configs/config-$(KVER)-$(FWVER)-nsa1041 $(KDIR)/output/nsa1041/.config
+	$(Q) mkdir -p $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,%,$@)
+	$(Q) cp $< $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,%/.config,$@)
 	@(cd $(KDIR); unset KBUILD_OUTPUT; $(cmd_make) mrproper;              \
-	  export KBUILD_OUTPUT=$(KDIR)/output/nsa1041;                        \
+	  export KBUILD_OUTPUT=$(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,%,$@);      \
 	  echo "  - cleaning everything and updating config...";              \
-	  $(cmd_make) -j 3 clean ; $(cmd_make) oldconfig;                     \
-	  echo "  - compiling kernel $(KVER)...";                             \
-	  if $(cmd_make) -j 3 bzImage                                         \
+	  $(cmd_make) clean ;                                                 \
+	  $(cmd_make) oldconfig > $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,config-%.log,$@); \
+	  echo "  - compiling kernel $(KVER) for $${KBUILD_OUTPUT##*/}..."; \
+	  if $(cmd_make) bzImage                                              \
 	        CC="$(cmd_kgcc)" cmd_lzmaramfs="$(cmd_lzma) e \$$< \$$@ -d19" \
-	     > output/build-nsa1041.log 2>&1; then                            \
+	     > $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,build-%.log,$@) 2>&1; then  \
 	    ln $${KBUILD_OUTPUT}/arch/i386/boot/bzImage $@;                   \
 	  else                                                                \
-	    echo "Failed !!!";                                                \
-	    echo; echo "Tail of output/build-nsa1041.log :"; echo " ------ "; \
-	    tail -10 output/build-nsa1041.log; echo " ------ ";               \
+	    echo "Failed !!!"; echo ;                                         \
+	    echo "Tail of output/build-$${KBUILD_OUTPUT##*/}.log :";        \
+	    echo " ------ ";                                                  \
+	    tail -10 $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,build-%.log,$@);      \
+	    echo " ------ ";                                                  \
 	    exit 1;                                                           \
 	  fi)
 	@echo "  -> done."
 
-$(KDIR)/prebuilt/initramfs_data.cpio: $(INITRAMFS) $(KDIR)/.patched
+$(KDIR)/prebuilt/initramfs_data.cpio: $(KDIR)/.patched
+	$(Q) if [ ! -s "$(INITRAMFS)" ]; then \
+               echo "Missing rootfs : $(INITRAMFS)."; \
+	       ! echo "  -> Please issue '$(cmd_make) rootfs' first."; \
+             fi
 	$(Q) mkdir -p $(KDIR)/prebuilt
-	$(Q) rm -f $@ ; ln -s $< $@
+	$(Q) rm -f $@ ; ln -s $(INITRAMFS) $@
 
 $(KDIR)/.patched: $(KDIR)/.updated
 	@echo "Patching kernel $(KVER)..."
@@ -154,4 +213,3 @@ $(BUILD_DIR)/kernel/linux-$(BASE_KVER)/.extracted: $(SOURCE_DIR)/linux-$(BASE_KV
 	$(Q) $(cmd_tar) -C $(BUILD_DIR)/kernel -jxf $<
 	$(Q) touch $@
 	@echo "  -> done."
-
