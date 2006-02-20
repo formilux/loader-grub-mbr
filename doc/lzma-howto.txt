@@ -1,0 +1,98 @@
+
+This is a collection of lzma programs/patches I wrote :-
+
+Basically it consists of :- 
+
+ 1. Kernel patches (2.4/2.6) to use LZMA to compress/decompress the vmlinux,
+    ie lzma vmlinuz instead of the gzip version.
+
+ 2. Kernel patches (2.4/2.6) to use LZMA to compress/decompress the initrd
+    ( together in this patch, it will handle LZMA initramfs too ), 
+    ie lzma initrd and lzma initramfs.cpio instead of the gzip version.
+    
+    Original gzip capability is still intact, ie you can supply initrd
+    and initramfs.cpio in either gzip or lzma format. It's upto you.
+
+ 3. A light weight utility (lzmacat) to decompress a lzma-compressed file.
+    This program adapts it's memory usage based on the file size, ie uses
+    less memory for small files irrespective of dictionary size, but will 
+    consume memory at most the size of the dictionary for big files.
+    
+ 4. A busybox diff for busybox to include applet lzmacat. This is derived
+    from the patch created by Thomas Lundquist <baldrick@castle.hyssing.net>
+    ( http://www.zelow.no/floppyfw ).
+    
+
+All these require LZMA SDK to work.
+
+1. To download  LZMA SDK, 
+
+    http://www.7-zip.org/sdk.html
+
+   Currently it points to 
+
+    http://www.7-zip.org/dl/lzma422.tar.bz2
+
+2. To compile the C++ lzma compressor/decompressor,
+
+    $ mkdir lzma
+    $ cd lzma
+    $ tar xvjf ../lzma422.tar.bz2
+    $ cd SRC/7zip/Compress/LZMA_Alone
+
+    $ dos2unix makefile
+  
+           or 
+ 
+    $ cat makefile | tr -d '\r' >makefile.tmp;  mv makefile.tmp makefile
+
+    $ make
+
+   To install, 
+
+    $ su
+    # cp lzma /bin
+
+   To get help on 'lzma',
+
+    $ lzma
+
+   To compress a file,
+
+    $ lzma e a.file a.lzma
+
+   To uncompress a file,
+
+    $ lzma d a.lzma a.orig
+
+3. To compress initrd using lzma,
+
+    $ gunzip initrd.gz
+    $ lzma e initrd initrd.7z -d16
+
+   To be on the safe side, it is important to use -d16 when compressing initrd,
+   or else the decompressor might not have enough memory to decode it. You might
+   want to try higher dictionary size if your platform has huge memory.
+ 
+4. To patch the kernel source to handle lzma vmlinuz, 
+
+    $ cd /usr/src/linux
+
+    $ patch -p1 < lzma-vmlinuz-2.4.patch
+        or
+    $ patch -p1 < lzma-vmlinux-2.6.patch
+
+5. To patch the kernel source to handle lzma initrd,
+
+    $ cd /usr/src/linux
+
+    $ patch -p1 < lzma-initrd-2.4.patch
+        or
+    $ patch -p1 < lzma-initrd-2.6.patch
+    
+6. To compile the utility program 'lzmacat',
+
+    $ make lzmacat
+
+Ming-Ching Tiew <mctiew@yahoo.com>
+30-June-2005
