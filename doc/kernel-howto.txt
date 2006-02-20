@@ -1,0 +1,11 @@
+Download the kernel from this URL :
+   http://www.kernel.org/pub/linux/kernel/v2.6/
+
+and the rc* patch can be reached there :
+   http://www.kernel.org/pub/linux/kernel/v2.6/testing/
+
+WARNING! The makefile only uses .bz2 files.
+
+You should create a "sources" directory and put the files into it.
+
+
