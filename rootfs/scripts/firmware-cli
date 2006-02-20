@@ -1,10 +1,13 @@
 #!/bin/sh
 
 # this program uses several external programs :
-# tar,mount,umount,mke2fs,serial-load,grub-mbr-default,update-boot-image,wget,tftp
+# tar,mount,umount,mke2fs,[tune2fs],serial-load,grub-mbr-default,update-boot-image,wget,tftp
 
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+
+# firmware version
+FW_VER=0.3
 
 SERIAL_BAUD=115200
 DOWNLOAD_SAVE=N
@@ -370,6 +373,9 @@ do_menu_format_flash() {
   do_confirm || return 1
 
   mke2fs -m 0 -s 1 -b 1024 -N 256 $flash
+  # do it in case mke2fs was not patched for this. We mask any error because
+  # it may even not be there .
+  tune2fs -c 0 -i 0 $flash >/dev/null 2>&1
   
   umount $FLASH_MNT >/dev/null 2>&1 || mkdir -p $FLASH_MNT >/dev/null 2>&1
   mount $flash $FLASH_MNT >/dev/null 2>&1
@@ -585,7 +591,7 @@ do_check_and_save_image() {
     do_menu_download_image || return 1
   fi
   do_inform "Checking pending image..."
-  update-boot-image -n -q $DOWNLOAD_IMAGE_FILE
+  update-boot-image -n -d $FLASH_PART -q $DOWNLOAD_IMAGE_FILE
   err=$?
   do_inform
   case $err in
@@ -594,7 +600,7 @@ do_check_and_save_image() {
     *) do_prompt "Internal error. Please retry, reboot then report." ; return 1 ;;
   esac
   do_inform "Please wait for write completion. This can take one minute..."
-  update-boot-image -q $DOWNLOAD_IMAGE_FILE
+  update-boot-image -d $FLASH_PART -q $DOWNLOAD_IMAGE_FILE
   err=$?
   do_inform
   # Note that if we get errors on flash access but the valid image remains in memory,
@@ -733,10 +739,77 @@ do_menu_change_default_image() {
   return 0
 }
 
+# boots an image
+do_menu_restore_factory_defaults() {
+  do_test_system_partition >/dev/null 2>&1 || do_select_flash || return 1
+
+  flash="$FLASH_PART"
+
+  do_inform "WARNING! Restoring factory defaults will destroy all system configurations."
+  do_inform "This operation cannot be reverted and is intended for use as a last resort"
+  do_inform "to repair totally unbootable systems."
+  do_confirm || return 1
+
+  do_inform "Removing configurations."
+  if mount $flash $FLASH_MNT >/dev/null 2>&1 && \
+     rm -f $FLASH_MNT/cfg/config.* >/dev/null 2>&1 && \
+     umount $FLASH_MNT >/dev/null 2>&1; then
+    do_inform
+    do_inform "Active and Backup configurations have been definitely removed, the system will"
+    do_inform "use factory defaults on next boot."
+    do_prompt
+  else
+    do_inform
+    do_inform "For an unknown reason, some configurations could not be removed. You may want"
+    do_inform "to try to reformat the system partition."
+    do_prompt
+  fi
+  return 0
+}
+
+# boots an image
+do_menu_revert_config() {
+  do_test_system_partition >/dev/null 2>&1 || do_select_flash || return 1
+
+  flash="$FLASH_PART"
+
+  umount $FLASH_MNT >/dev/null 2>&1 || mkdir -p $FLASH_MNT >/dev/null 2>&1
+  if mount $flash $FLASH_MNT >/dev/null 2>&1 &&
+    [ -f $FLASH_MNT/cfg/config.bak ]; then
+    valid=1
+  else
+    valid=0
+  fi
+  umount $FLASH_MNT >/dev/null 2>&1
+  if [ $valid -eq 0 ]; then
+    do_inform
+    do_error "There is no backup config on the flash. Cannot revert configuration."
+    do_prompt
+    return 1
+  fi
+
+  do_inform "WARNING! Reverting configuration may render the system unbootable, especially"
+  do_inform "if booting a configuration with a wrong system image. The active and backup"
+  do_inform "configurations will be switched so that doing it again will retore current"
+  do_inform "configuration."
+  do_confirm || return 1
+
+  mount $flash $FLASH_MNT >/dev/null 2>&1
+  rm -f $FLASH_MNT/cfg/config.swp
+  mv $FLASH_MNT/cfg/config.bak $FLASH_MNT/cfg/config.swp >/dev/null 2>&1
+  mv $FLASH_MNT/cfg/config.cur $FLASH_MNT/cfg/config.bak >/dev/null 2>&1
+  mv $FLASH_MNT/cfg/config.swp $FLASH_MNT/cfg/config.cur >/dev/null 2>&1
+  umount $FLASH_MNT >/dev/null 2>&1
+  do_inform
+  do_inform "Active and Backup configurations have been switched."
+  do_prompt
+  return 0
+}
+
 # main menu which never returns.
 do_menu_main() {
   while : ; do
-    while do_menu "Main menu|Select system partition ($FLASH_PART = $FLASH_SIZE kB)|View images|Network setup|Download image|Save image|Change default image|Boot an image|Delete image|Change default config|Delete config|Shell|Format system partition|Reboot|Exit(dangerous)"; do
+    while do_menu "Main menu|Select system partition ($FLASH_PART = $FLASH_SIZE kB)|View images|Network setup|Download image|Save image|Change default image|Boot an image|Delete image|Revert to backup config|Restore to factory defaults|Shell|Format system partition|Reboot|Exit(dangerous)"; do
       case $LINE in
         1) do_select_flash ;;
         2) do_menu_view_images ;;
@@ -746,12 +819,12 @@ do_menu_main() {
         6) do_menu_change_default_image ;;
         7) do_menu_boot_image ;;
         8) do_menu_delete_image ;;
-        9) do_menu_change_default_config ;;
-        10) do_menu_delete_config ;;
+        9) do_menu_revert_config ;;
+        10) do_menu_restore_factory_defaults ;;
         11) do_inform "Type 'exit' to leave this shell.";/bin/sh ;;
         12) do_menu_format_flash ;;
-        13) do_confirm "Ready to REBOOT" && reboot ;;
-        14) exit 0 ;;
+        13) do_confirm "Ready to REBOOT" && reboot ;; # warning: reboot segfaults in vmware
+        14) do_inform "Type 'firmware-cli' to restart this menu."; exit 0 ;;
       esac
     done
     #echo "No default menu"
@@ -787,7 +860,7 @@ init_flash_from_cmdline() {
 ########### main ###########
 
 clear
-do_inform " --- Firmware utility version 0.1 --- "
+do_inform " --- Firmware utility version $FW_VER --- "
 
 init_flash_from_cmdline
 
