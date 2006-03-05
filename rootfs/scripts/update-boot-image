@@ -5,7 +5,7 @@
 ##     -h : show this help
 ##     -n : just check the image and do not change anything
 ##     -q : be quiet
-##     -f : force removal of both old images if required
+##     -f : force removal of both old images if required and ignore model name
 ##     -d : use this flash device if not mounted yet
 ##     -v : show a valid image version even in quiet mode
 ##     -m : use the pre-mounted flash FS <mntdir>
@@ -37,6 +37,7 @@ MOUNTED=
 MOUNTED_RO=
 SHOW_VERSION=
 KEEP_FILES=
+MODEL=
 
 while [ $# -gt 0 ]; do
   [ -z "${1##-*}" ] || break
@@ -134,12 +135,22 @@ if ! (cd $TEMP/* ; md5sum -c system.sig >/dev/null 2>&1); then
   do_exit_error 2
 fi
 
-[ -z "$QUIET" ] && echo "Valid image."
-
 if [ -n "$SHOW_VERSION" ]; then
-  IMGVER=$(cat $TEMP/*/kernel.ver 2>/dev/null)
+  IMGVER=$(cat $TEMP/*/system.ver || cat $TEMP/*/kernel.ver 2>/dev/null)
   [ -n "$IMGVER" ] && echo "$IMGVER" || echo "unknown"
 fi
+
+# Ensure that the image is named something like <kver>-<model>-<build>,
+# otherwise complain unless -f has been set.
+set -- $(grep "^Model:" /usr/share/factory/version 2>/dev/null)
+MODEL="$2"
+if [ -z "$FORCE" -a \
+     -n "$MODEL" -a -n "$IMGVER" -a -n "${IMGVER##*-$MODEL-*}" ]; then
+  [ -z "$QUIET" ] && echo "Wrong image for model $MODEL."
+  do_exit_error 2
+fi
+
+[ -z "$QUIET" ] && echo "Valid image."
 
 [ "$DRYRUN" = 1 ] && do_exit_ok
 
