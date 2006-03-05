@@ -7,7 +7,7 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
 # firmware version
-FW_VER=0.3
+FW_VER=0.4
 
 SERIAL_BAUD=115200
 DOWNLOAD_SAVE=N
@@ -425,11 +425,15 @@ do_view_images() {
   umount $FLASH_MNT >/dev/null 2>&1 || mkdir -p $FLASH_MNT >/dev/null 2>&1
   mount -r $flash $FLASH_MNT >/dev/null 2>&1
   active="not present" ; backup=$active
-  [ -r $FLASH_MNT/sys/active/kernel.ver ] && \
+  [ -s $FLASH_MNT/sys/active/kernel.ver ] && \
     active=$(cat $FLASH_MNT/sys/active/kernel.ver 2>/dev/null)
+  [ -s $FLASH_MNT/sys/active/system.ver ] && \
+    active=$(cat $FLASH_MNT/sys/active/system.ver 2>/dev/null)
 
-  [ -r $FLASH_MNT/sys/backup/kernel.ver ] && \
+  [ -s $FLASH_MNT/sys/backup/kernel.ver ] && \
     backup=$(cat $FLASH_MNT/sys/backup/kernel.ver 2>/dev/null)
+  [ -s $FLASH_MNT/sys/backup/system.ver ] && \
+    backup=$(cat $FLASH_MNT/sys/backup/system.ver 2>/dev/null)
 
   do_inform "Active image version  : $active"
   do_inform "Backup image version  : $backup"
@@ -660,8 +664,8 @@ do_menu_boot_image() {
       fi
       # files have been kept in $_dir.
       do_inform "Loading image in memory..."
-      if ! kexec -l --command-line="$(cat $_dir/*/kernel.arg) flash=${FLASH_PART##*/}" \
-           --initrd="$(echo $_dir/*/initrd.img)" $_dir/*/kernel.img; then
+      if ! kexec -l -c "$(cat $_dir/*/kernel.arg) flash=${FLASH_PART##*/}" \
+           -i "$(echo $_dir/*/initrd.img)" $_dir/*/kernel.img; then
         do_error "Failed to load image"
       else
         do_inform "Booting image now..."
@@ -678,13 +682,13 @@ do_menu_boot_image() {
       mount -r $flash $FLASH_MNT >/dev/null 2>&1
       if [ $LINE = 2 ]; then     ### active image
         do_inform "Loading active image in memory..."
-        kexec -l --command-line="$(cat $FLASH_MNT/sys/active/kernel.arg) flash=${FLASH_PART##*/}" --initrd="$(echo $FLASH_MNT/sys/active/initrd.img)" $FLASH_MNT/sys/active/kernel.img
+        kexec -l -c "$(cat $FLASH_MNT/sys/active/kernel.arg) flash=${FLASH_PART##*/}" -i "$(echo $FLASH_MNT/sys/active/initrd.img)" $FLASH_MNT/sys/active/kernel.img
 	err=$?
         # fake current boot to "active(retry)"
         grub-mbr-default -q $FLASH_MBR 2
       else
         do_inform "Loading backup image in memory..."
-        kexec -l --command-line="$(cat $FLASH_MNT/sys/backup/kernel.arg) flash=${FLASH_PART##*/}" --initrd="$(echo $FLASH_MNT/sys/backup/initrd.img)" $FLASH_MNT/sys/backup/kernel.img
+        kexec -l -c "$(cat $FLASH_MNT/sys/backup/kernel.arg) flash=${FLASH_PART##*/}" -i "$(echo $FLASH_MNT/sys/backup/initrd.img)" $FLASH_MNT/sys/backup/kernel.img
 	err=$?
         # fake current boot as "backup(retry)"
         grub-mbr-default -q $FLASH_MBR 4
