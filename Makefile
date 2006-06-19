@@ -1,7 +1,7 @@
 # set to anything other than empty to see commands being executed
 V =
 
-FWVER     = 0.3
+FWVER     = 0.4
 BASE_KVER = 2.6.15
 KVER      = 2.6.16-rc4
 
@@ -17,16 +17,16 @@ TEMP_FILES    := $(KDIR)/output $(KDIR)/prebuilt/initramfs_data.cpio
 PERM_FILES    := $(INITRAMFS)
 
 # Use the configuration suffixes to determine the list of platforms
-PLATFORMS     := $(shell x=( $$(echo kernel/$(KVER)/configs/*) ); echo $${x[@]\#\#*-})
+PLATFORMS     := $(shell x=( $$(echo kernel/$(KVER)/configs/config-$(KVER)-$(FWVER)-*) ); echo $${x[@]\#\#*-})
 
 # various commands which can be overridden by the command line.
 
 cmd_sudo      := sudo
+cmd_7za       := 7za
 cmd_gzip      := gzip
 cmd_cpio      := cpio
 cmd_tar       := tar
 cmd_install   := install
-cmd_path      := patch
 cmd_bzip2     := bzip2
 cmd_find      := find
 cmd_patch     := patch
@@ -150,7 +150,7 @@ $(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
 
 	$(Q) cp $< $@
 	@echo "Firmware $(FWVER) for $(patsubst $(FINAL_DIR)/firmware-$(FWVER)-%.img,%,$@) is available here :"
-	@echo "  -> $@"
+	@echo "  -> $(subst $(CURDIR)/,,$@)"
 
 $(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
   $(KDIR)/output/firmware-$(FWVER)-%.img: \
@@ -169,6 +169,7 @@ $(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
 	  echo "  - compiling kernel $(KVER) for $${KBUILD_OUTPUT##*/}...";   \
 	  if $(cmd_make) bzImage                                              \
 	        CC="$(cmd_kgcc)" cmd_lzmaramfs="$(cmd_lzma) e \$$< \$$@ -d19" \
+	        cmd_gzip="$(cmd_7za) a -tgzip -mx9 -mpass=4 -so -si . <\$$< >\$$@" \
 	     > $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,build-%.log,$@) 2>&1; then  \
 	    ln $${KBUILD_OUTPUT}/arch/i386/boot/bzImage $@;                   \
 	  else                                                                \
@@ -192,7 +193,7 @@ $(KDIR)/prebuilt/initramfs_data.cpio: $(KDIR)/.patched
 $(KDIR)/.patched: $(KDIR)/.updated
 	@echo "Patching kernel $(KVER)..."
 	$(Q) $(cmd_find) $(CURDIR)/kernel/$(KVER)/patches -maxdepth 1 -type f \
-	  -exec patch -d $(KDIR) -Nsp1 -i \{\} \;
+	  -exec $(cmd_patch) -d $(KDIR) -Nsp1 -i \{\} \;
 	touch $@
 	@echo "  -> done."
 
