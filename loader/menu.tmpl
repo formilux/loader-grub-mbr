@@ -12,28 +12,28 @@ timeout 2
 fallback 0 1 2 3 4 5 6
 
 # image 0
-title active
+title Active Image
    root (hd0,1)
    savedefault 1
    kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH%
    initrd /sys/active/initrd.img 
 
 # image 1
-title active(retry)
+title Active Image (retry)
    root (hd0,1)
    savedefault 2
    kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH%
    initrd /sys/active/initrd.img 
 
 # image 2
-title backup
+title Backup Image
    root (hd0,1)
    savedefault 3
    kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH%
    initrd /sys/backup/initrd.img 
 
 # image 3
-title backup(retry)
+title Backup Image (retry)
    root (hd0,1)
    savedefault 4
    kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH%
@@ -41,7 +41,7 @@ title backup(retry)
 
 # image 4
 ### THIS IMAGE CAN BE COMMENTED OUT
-title active-rw
+title Active-RW
    root (hd0,1)
    # a successful boot will round it down to 4
    savedefault 5
@@ -49,14 +49,14 @@ title active-rw
 
 # image 5
 ### THIS IMAGE CAN BE COMMENTED OUT
-title active-rw (retry)
+title Active-RW (retry)
    root (hd0,1)
    # a successful boot will round it down to 4
    savedefault 6
    kernel /sys/active/kernel.img root=/dev/hdc4 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH%
 
 # image 4 or 6
-title firmware
+title Maintenance Kernel
    root (hd0,0)
    # next boot should retry active conf.
    savedefault 0
@@ -64,20 +64,20 @@ title firmware
 
 # development kernel
 ### THIS IMAGE CAN BE COMMENTED OUT
-title firmware-dev
+title Maintenance Kernel (development)
    root (hd0,0)
    # next boot will stay on this image
    savedefault
    kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 flash=%FLASH%
 
 # image 5, 6 or 8
-title reboot
+title Reboot
    # ensure that we never loop
    savedefault 0
    reboot
 
 # image 6, 7 or 9
-title halt
+title Halt
    # ensure that we never loop
    savedefault 0
    halt
