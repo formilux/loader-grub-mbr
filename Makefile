@@ -1,9 +1,9 @@
 # set to anything other than empty to see commands being executed
 V =
 
-FWVER     = 0.4
-BASE_KVER = 2.6.15
-KVER      = 2.6.16-rc4
+FWVER     = 0.5
+BASE_KVER = 2.6.16
+KVER      = 2.6.16.36
 
 CURDIR        := $(shell pwd)
 FINAL_DIR     := $(CURDIR)/image

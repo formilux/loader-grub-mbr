@@ -1,0 +1,40 @@
+This patch reduces the vmlinux image size by about 10 kB.
+
+
+--- ./net/ipv4/af_inet.c.orig	Sat Feb 18 10:16:06 2006
++++ ./net/ipv4/af_inet.c	Sat Feb 18 10:19:04 2006
+@@ -1249,7 +1249,7 @@
+ 
+ /* ------------------------------------------------------------------------ */
+ 
+-#ifdef CONFIG_PROC_FS
++#ifdef CONFIG_PROC_NET_IPV4
+ static int __init ipv4_proc_init(void)
+ {
+ 	int rc = 0;
+@@ -1279,12 +1279,12 @@
+ 	goto out;
+ }
+ 
+-#else /* CONFIG_PROC_FS */
++#else /* CONFIG_PROC_NET_IPV4 */
+ static int __init ipv4_proc_init(void)
+ {
+ 	return 0;
+ }
+-#endif /* CONFIG_PROC_FS */
++#endif /* CONFIG_PROC_NET_IPV4 */
+ 
+ MODULE_ALIAS_NETPROTO(PF_INET);
+ 
+--- ./net/ipv4/Makefile.bad	Sat Feb 18 07:12:24 2006
++++ ./net/ipv4/Makefile	Sat Feb 18 10:18:27 2006
+@@ -13,7 +13,7 @@
+ 
+ obj-$(CONFIG_IP_FIB_HASH) += fib_hash.o
+ obj-$(CONFIG_IP_FIB_TRIE) += fib_trie.o
+-obj-$(CONFIG_PROC_FS) += proc.o
++obj-$(CONFIG_PROC_NET_IPV4) += proc.o
+ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
+ obj-$(CONFIG_IP_MROUTE) += ipmr.o
+ obj-$(CONFIG_NET_IPIP) += ipip.o
