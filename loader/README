@@ -8,6 +8,7 @@ LD model  Hardware   Partition
  100R     NSA 1041   /dev/hdc2
  300R     NSA 1045   /dev/hdc2
 1000R     NSA 1046   /dev/hda2
+  -       AR-M9952A  /dev/hda2
 
 ---
 

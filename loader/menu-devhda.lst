@@ -35,12 +35,11 @@ title Backup Image
 # image 3
 title Backup Image (retry)
    root (hd0,1)
-   savedefault 4
+   savedefault 6
    kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=hda2
    initrd /sys/backup/initrd.img 
 
 # image 4
-### THIS IMAGE CAN BE COMMENTED OUT
 title Active-RW
    root (hd0,1)
    # a successful boot will round it down to 4
@@ -48,7 +47,6 @@ title Active-RW
    kernel /sys/active/kernel.img root=/dev/hdc4 ro auto quiet console=ttyS0,9600 panic=1 flash=hda2
 
 # image 5
-### THIS IMAGE CAN BE COMMENTED OUT
 title Active-RW (retry)
    root (hd0,1)
    # a successful boot will round it down to 4
@@ -63,7 +61,6 @@ title Maintenance Kernel
    kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 flash=hda2
 
 # development kernel
-### THIS IMAGE CAN BE COMMENTED OUT
 title Maintenance Kernel (development)
    root (hd0,0)
    # next boot will stay on this image

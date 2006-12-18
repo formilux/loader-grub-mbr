@@ -9,7 +9,7 @@ terminal serial
 
 default saved
 timeout 2
-fallback 0 1 2 3 4 5 6
+fallback 0 1 2 3 4
 
 # image 0
 title Active Image
@@ -39,35 +39,11 @@ title Backup Image (retry)
    kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=hdc2
    initrd /sys/backup/initrd.img 
 
-# image 4
-### THIS IMAGE CAN BE COMMENTED OUT
-title Active-RW
-   root (hd0,1)
-   # a successful boot will round it down to 4
-   savedefault 5
-   kernel /sys/active/kernel.img root=/dev/hdc4 ro auto quiet console=ttyS0,9600 panic=1 flash=hdc2
-
-# image 5
-### THIS IMAGE CAN BE COMMENTED OUT
-title Active-RW (retry)
-   root (hd0,1)
-   # a successful boot will round it down to 4
-   savedefault 6
-   kernel /sys/active/kernel.img root=/dev/hdc4 ro auto quiet console=ttyS0,9600 panic=1 flash=hdc2
-
 # image 4 or 6
 title Maintenance Kernel
    root (hd0,0)
    # next boot should retry active conf.
    savedefault 0
-   kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 flash=hdc2
-
-# development kernel
-### THIS IMAGE CAN BE COMMENTED OUT
-title Maintenance Kernel (development)
-   root (hd0,0)
-   # next boot will stay on this image
-   savedefault
    kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 flash=hdc2
 
 # image 5, 6 or 8

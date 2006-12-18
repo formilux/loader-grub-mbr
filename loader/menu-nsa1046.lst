@@ -1,0 +1,60 @@
+#
+# boot last working image by default, and allow one failure
+#
+
+hiddenmenu
+
+serial --unit=0 --speed=9600
+terminal serial
+
+default saved
+timeout 2
+fallback 0 1 2 3 4
+
+# image 0
+title Active Image
+   root (hd0,1)
+   savedefault 1
+   kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=hda2
+   initrd /sys/active/initrd.img 
+
+# image 1
+title Active Image (retry)
+   root (hd0,1)
+   savedefault 2
+   kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=hda2
+   initrd /sys/active/initrd.img 
+
+# image 2
+title Backup Image
+   root (hd0,1)
+   savedefault 3
+   kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=hda2
+   initrd /sys/backup/initrd.img 
+
+# image 3
+title Backup Image (retry)
+   root (hd0,1)
+   savedefault 4
+   kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=hda2
+   initrd /sys/backup/initrd.img 
+
+# image 4 or 6
+title Maintenance Kernel
+   root (hd0,0)
+   # next boot should retry active conf.
+   savedefault 0
+   kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 flash=hda2
+
+# image 5, 6 or 8
+title Reboot
+   # ensure that we never loop
+   savedefault 0
+   reboot
+
+# image 6, 7 or 9
+title Halt
+   # ensure that we never loop
+   savedefault 0
+   halt
+
