@@ -7,7 +7,7 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
 # firmware version
-FW_VER=0.4
+FW_VER=0.5
 
 SERIAL_BAUD=115200
 DOWNLOAD_SAVE=N
@@ -326,7 +326,7 @@ do_test_system_partition() {
   fi
 
   mbrdev=${mbr##/dev/}
-  while [ -n "$mbrdev" ] && ! grep  " $mbrdev\$" /proc/partitions; do
+  while [ -n "$mbrdev" ] && ! grep -q " $mbrdev\$" /proc/partitions; do
     mbrdev=${mbrdev%?}
   done
 
@@ -338,7 +338,30 @@ do_test_system_partition() {
 
   FIRMWARE_PART=$firmware
   FLASH_MBR=/dev/$mbrdev
-  do_inform "This seems to be the right partition - $flash ($size kB)"
+  do_inform "This looks like the correct partition - $flash ($size kB)"
+}
+
+# lists all partitions from stdin (same format as /proc/partitions).
+# If $1 is non-empty, it may contain the name of the currently selected
+# partition, which will show up as an indicator. If $2 is non-empty, it may
+# contain the name of the suggested partition.
+
+do_list_partitions() {
+  _oldnam=; _maj=; _min=; _blo=; _nam=; _rest=
+  while read _maj _min _blo _nam _rest; do
+    [ -z "$_maj" -o "$_maj" == "major" ] && continue
+  
+    if [ -n "${_oldnam}" -a -n "${_nam}" -a "${_nam#$_oldnam}" != "${_nam}" ]; then
+      echo -n "  /dev/${_nam#/dev/} : $(( (_blo+512)/1024 )) MB"
+      [ -n "$1" ] && [ "${_nam#/dev/}" == "${1#/dev/}" ] && echo -n " <- current"
+      [ -n "$2" ] && [ "${_nam#/dev/}" == "${2#/dev/}" ] && echo -n " <- suggested"
+      echo
+    else
+      echo
+      echo "/dev/${_nam#/dev/}    : total = $(( (_blo+512)/1024 )) MB"
+      _oldnam="${_nam}"
+    fi
+  done
 }
 
 # Prompts the user to select the system image.
@@ -346,6 +369,8 @@ do_select_flash() {
   _old_flash_part="$FLASH_PART"
   _old_flash_size="$FLASH_SIZE"
 
+  cat /proc/partitions | do_list_partitions "$FLASH_PART" "$FLASH_CMDLINE"
+  echo
   if [ ".$FLASH_PART" != ".$FLASH_CMDLINE" ]; then
     do_inform "Current system partition selected : $FLASH_PART"
     do_inform "The bootloader suggests this one  : $FLASH_CMDLINE"
