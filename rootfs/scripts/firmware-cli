@@ -7,7 +7,7 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
 # firmware version
-FW_VER=0.5
+FW_VER=0.6
 
 SERIAL_BAUD=115200
 DOWNLOAD_SAVE=N
@@ -283,6 +283,33 @@ get_partition_size() {
   REPLY=${3:-0}
 }
 
+# returns in $REPLY the next partition after $1.
+# For instance, it returns "hda10" for "hda9", or "hda1" for "hda".
+# 0 is normally returned, otherwise 1 if an error occurs
+get_next_part() {
+  _part_=${1##*[^0-9]}
+  _mbr_=${1%$_part_}
+  _next_=$(( _part_ + 1 ))
+  REPLY=${_mbr_}${_next_}
+}
+
+# returns in $REPLY the previous partition before $1.
+# For instance, it returns "hda9" for "hda10", or "hda" for "hda1".
+# 0 is normally returned, otherwise 1 if an error occurs
+get_prev_part() {
+  _part_=${1##*[^0-9]}
+  _mbr_=${f1%$_part_}
+  _next_=$(( _part_ - 1 ))
+  if [ $_next_ -lt 0 ]; then
+    return 1
+  elif [ $_next_ -gt 0 ]; then
+    REPLY=${_mbr_}${_next_}
+  else
+    REPLY=${_mbr_}
+  fi
+  return 0
+}
+
 # returns 0 if FLASH_PART represents a system partition, otherwise 1.
 # In any case FLASH_SIZE is updated to reflect the partition size in kB,
 # and in case of success, FIRMWARE_PART is updated to reflect the firmware
@@ -294,9 +321,13 @@ do_test_system_partition() {
   flash=$FLASH_PART ; size=$FLASH_SIZE
 
   if [ -n "$size" -a -z "${size##[0-9]*}" ] && [ $size -lt 10000 ]; then
-     do_inform
-     do_error "Partition too small : $flash is $size kB."
-     return 1
+    do_inform
+    if [ $size -eq 0 ]; then
+      do_error "Invalid partition : $flash"
+    else
+      do_error "System partition too small : $flash is $size kB."
+    fi
+    return 1
   fi
 
   partnum=${flash##*[^0-9]}
@@ -307,7 +338,7 @@ do_test_system_partition() {
     firmware=${mbr}${newpart}
   else
     do_inform
-    do_error "Invalid partition: $flash"
+    do_error "Invalid system partition: $flash"
     return 1
   fi
 
@@ -321,7 +352,7 @@ do_test_system_partition() {
   umount /mnt/disk >/dev/null 2>&1
   if [ $valid -eq 0 ]; then
     do_inform
-    do_error "$flash cannot be the system partition because $firmware is not the firmware partition."
+    do_error "$flash cannot be the system partition because $firmware is not a firmware partition."
     return 1
   fi
 
@@ -388,7 +419,7 @@ do_select_flash() {
 
 # This allows the user to reformat the system partition.
 # There are some controls, and it should be relatively safe.
-do_menu_format_flash() {
+do_menu_format_system_part() {
   do_test_system_partition >/dev/null 2>&1 || do_select_flash || return 1
 
   flash="$FLASH_PART"
@@ -428,6 +459,36 @@ do_menu_format_flash() {
     do_prompt "Please verify that it's the right device or use the shell to fix by hand."
     return 1;
   fi
+}
+
+
+# This allows the user to reformat the non-volatile partition.
+# There are some controls, and it should be relatively safe.
+do_menu_format_nv_part() {
+  do_test_system_partition >/dev/null 2>&1 || do_select_flash || return 1
+
+  flash="$FLASH_PART"
+  size=$FLASH_SIZE
+
+  get_next_part "$flash" || return 1
+  _nv_="$REPLY"
+  get_partition_size "$_nv_"
+
+  if [ "$REPLY" = "0" ]; then
+    do_inform
+    do_error "Empty flash partition $_nv_ selected. Please check your partitions."
+    return 1
+  fi
+
+  do_inform "Ready to format non-volatile partition $_nv_ ($REPLY kB)."
+  do_inform "WARNING! This will DESTROY ALL DATA on the partition."
+  do_confirm || return 1
+
+  # writing lots of 0xFF is enough to format a JFFS2 partition. 
+  do_inform "Filling the flash with 0xFF... This can take about 1 minute."
+  tr '\000' '\377' </dev/zero | dd of=$_nv_ bs=64k >/dev/null 2>&1
+  do_inform "Operation terminated."
+  return 0;
 }
 
 
@@ -838,22 +899,23 @@ do_menu_revert_config() {
 # main menu which never returns.
 do_menu_main() {
   while : ; do
-    while do_menu "Main menu|Select system partition ($FLASH_PART = $FLASH_SIZE kB)|View images|Network setup|Download image|Save image|Change default image|Boot an image|Delete image|Revert to backup config|Restore to factory defaults|Shell|Format system partition|Reboot|Exit(dangerous)"; do
+    while do_menu "Main menu|Select system partition ($FLASH_PART = $FLASH_SIZE kB)|View images|Format system partition|Format non-volatile partition|Network setup|Download image|Save image|Change default image|Boot an image|Delete image|Revert to backup config|Restore to factory defaults|Shell|Reboot|Exit(dangerous)"; do
       case $LINE in
         1) do_select_flash ;;
         2) do_menu_view_images ;;
-        3) do_set_local_ip ;;
-        4) do_menu_download_image ;;
-        5) do_check_and_save_image ;;
-        6) do_menu_change_default_image ;;
-        7) do_menu_boot_image ;;
-        8) do_menu_delete_image ;;
-        9) do_menu_revert_config ;;
-        10) do_menu_restore_factory_defaults ;;
-        11) do_inform "Type 'exit' to leave this shell.";/bin/sh ;;
-        12) do_menu_format_flash ;;
-        13) do_confirm "Ready to REBOOT" && reboot ;; # warning: reboot segfaults in vmware
-        14) do_inform "Type 'firmware-cli' to restart this menu."; exit 0 ;;
+        3) do_menu_format_system_part ;;
+        4) do_menu_format_nv_part ;;
+        5) do_set_local_ip ;;
+        6) do_menu_download_image ;;
+        7) do_check_and_save_image ;;
+        8) do_menu_change_default_image ;;
+        9) do_menu_boot_image ;;
+        10) do_menu_delete_image ;;
+        11) do_menu_revert_config ;;
+        12) do_menu_restore_factory_defaults ;;
+        13) do_inform "Type 'exit' to leave this shell.";/bin/sh ;;
+        14) do_confirm "Ready to REBOOT" && reboot ;; # warning: reboot segfaults in vmware
+        15) do_inform "Type 'firmware-cli' to restart this menu."; exit 0 ;;
       esac
     done
     #echo "No default menu"
