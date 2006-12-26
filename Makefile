@@ -1,7 +1,7 @@
 # set to anything other than empty to see commands being executed
 V =
 
-FWVER     = 0.5
+FWVER     = 0.6
 BASE_KVER = 2.6.16
 KVER      = 2.6.16.36
 
