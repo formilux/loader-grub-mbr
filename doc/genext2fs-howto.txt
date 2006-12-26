@@ -1,0 +1,9 @@
+To get genext2fs 1.4-rc :
+
+cvs -d:pserver:anonymous@genext2fs.cvs.sourceforge.net:/cvsroot/genext2fs login
+cvs -z3 -d:pserver:anonymous@genext2fs.cvs.sourceforge.net:/cvsroot/genext2fs co -P genext2fs
+
+cd genext2fs
+./autogen.sh
+./configure
+make

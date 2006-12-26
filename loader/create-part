@@ -1,0 +1,151 @@
+#!/bin/bash
+
+die() {
+    echo "$@" >&2
+    exit 2
+}
+
+if [ $# -ne 6 ]; then
+    echo "Usage: ${0##*/} <imgdir> <fwver> <model> <build> <path_grub> <path_genext2fs>"
+    echo " - <imgdir> is the absolute path to the output directory which will receive"
+    echo "   two files (.fs and .dsk). It must also contain a pre-built firmware."
+    echo " - <fwver> is the firmware version (eg: 0.6)"
+    echo " - <model> is the platform name (eg: nsa1046)"
+    echo " - <build> is the absolute path to the build directory."
+    echo " - <path_grub> is the path to the grub executable on the build host"
+    echo " - <path_genext2fs> is the path to the genext2fs executable on the build host"
+    echo
+    exit 1
+fi
+
+# files directory
+SRCDIR="${0%/*}"
+
+# firmware file for the model
+IMGDIR="$1"
+[ -d "$IMGDIR/." ] || die "Error: <$IMGDIR> is not a valid image directory."
+
+# firmware version
+FWVER="$2"
+
+# hardware model
+MODEL="$3"
+[ -s "$SRCDIR/menu-$MODEL.lst" ] || die "Error: no menu.lst entry for model <$MODEL> !"
+
+# firmware file for the model
+FWFILE="$IMGDIR/firmware-$FWVER-$MODEL.img"
+[ -s "$FWFILE" ] || die "Error: no firmware in version <$FWVER> for model <$MODEL> !"
+
+BUILDDIR="$4"
+[ -d "$BUILDDIR/." ] || die "Error: <$BUILDDIR> is not a valid build directory."
+
+GRUB="$5"
+[ -x "$GRUB" ] && $GRUB --version || die "Error: <$GRUB> is not a valid executable for grub."
+
+GENEXT2FS="$6"
+[ -x "$GENEXT2FS" ] && $GENEXT2FS --version || die "Error: <$GENEXT2FS> is not a valid executable for genext2fs."
+
+# temporary image
+BUILD="$BUILDDIR/loader/$MODEL"
+[ -e "$BUILD" ] && rm -rf "$BUILD"
+
+# Output files (their temp location, they will be moved later)
+OUT_FS="$BUILDDIR/loader/bootstrap-$FWVER-$MODEL.fs"
+OUT_DSK="$BUILDDIR/loader/bootstrap-$FWVER-$MODEL.dsk"
+
+# Disk geometry (bound to file size)
+C=2
+H=32
+S=63
+
+### FIXME: this should be model-specific.
+# partition 1 approximate size in cylinders (start cyl of next part)
+P1C=2
+
+# partition 2 size in cylinders (DATA)
+P2C=49
+
+# partition 3 size in cylinders (NVRAM)
+P3C=11
+
+
+### nothing to configure below ###
+
+
+# track size in sectors
+TRK=$((H*S))
+
+# File size in sectors and in bytes
+SECT=$((C*TRK))
+SIZE=$((SECT*512))
+
+
+# Creating the build environment
+echo "Creating the build environment for model $MODEL"
+mkdir -p "$BUILD/boot" || die "error during mkdir -p $BUILD/boot"
+mkdir -p "$BUILD/boot"/{grub,firmware,defaults} || die "error during mkdir grub,firmware,defaults"
+cp "$SRCDIR/"{stage1,e2fs_stage1_5,stage2} "$BUILD/boot/grub/" || die "error while copying grub files"
+cp "$SRCDIR/menu-$MODEL.lst" "$BUILD/boot/grub/menu.lst" || die "error while copying model-specific grub config"
+cp "$SRCDIR/../rootfs/prebuilt/grub-mbr-default" "$BUILD/boot/defaults/" || die "error while copying default files"
+cp "$FWFILE" "$BUILD/boot/firmware/firmware.img" || die "error while copying firmware file"
+
+"$GENEXT2FS" -z -N 256 -m 0 -b $(((P1C*TRK-S)*512/1024)) -e 0 -U -P "$OUT_FS" -d "$BUILD"
+
+echo "Creating output image file"
+dd if=/dev/zero of=$OUT_DSK bs=512 count=$SECT
+
+
+
+# write partition table to the file
+echo "Writing boot sector on image. Ignore the warning messages."
+
+### sfdisk is annoying because it always causes a BLKRRPART
+# sfdisk --no-reread -C$C -H$H -S$S -q -f $OUT_DSK 2>/dev/null <<EOF
+# #cat <<EOF
+# # partition table of tempfiles/entete-flash.dat
+# unit: sectors
+# 
+# part1 : start= $((1*S)), size= $((P1C*TRK - 1*S)), Id=83
+# part2 : start= $((P1C*TRK)), size= $((P2C*TRK)), Id=83
+# part3 : start= $(((P1C+P2C)*TRK)), size= $((P3C*TRK)), Id=83
+# part4 : start= $(((P1C+P2C+P3C)*TRK)), size= 0, Id=83
+# EOF
+
+### We can do the same with grub without the BLKRRPART
+
+# do this in order to prevent grub from guessing useless devices from the BIOS.
+echo "(hd0) $OUT_DSK" > "$OUT_DSK.map"
+
+"$GRUB" --batch --no-floppy --boot-drive=0x80 --device-map "$OUT_DSK.map" <<EOF
+  geometry (hd0) $((P1C+P2C+P3C+1)) $H $S
+  partnew (hd0,0) 0x83 $S                     $((P1C*TRK - 1*S))
+  partnew (hd0,1) 0x83 $((P1C*TRK))           $((P2C*TRK))
+  partnew (hd0,2) 0x83 $(((P1C+P2C)*TRK))     $((P3C*TRK))
+  partnew (hd0,3) 0x83 $(((P1C+P2C+P3C)*TRK)) $((TRK))
+  quit
+EOF
+
+echo "Dumping the filesystem onto the partition image"
+dd if="$OUT_FS" of="$OUT_DSK" bs=512 seek=$S conv=notrunc
+
+#
+# now grub :
+#   grub --no-floppy
+#     device (hd0) ../build/loader/entete-acrosser.dat
+#     root (hd0,0)
+#     setup (hd0)
+
+echo "Running grub now on the file..."
+"$GRUB" --batch --no-floppy --boot-drive=0x80 --device-map "$OUT_DSK.map" <<EOF
+  root (hd0,0)
+  setup (hd0)
+  quit
+EOF
+
+mv "$OUT_FS" "$OUT_DSK" "$IMGDIR/"
+rm "$OUT_DSK".map
+
+echo
+echo "###"
+echo "### Done! bootstrap-$FWVER-$MODEL is ready."
+echo "###"

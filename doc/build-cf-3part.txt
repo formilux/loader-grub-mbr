@@ -30,7 +30,8 @@ otherwise GRUB will partly fail later.
 -----------------------
 Partition 1 is an ext2fs of about 2 MB. It may be created with genext2fs :
 
-  # genext2fs -z -I 256 -r 0 -b 2032 part1.img
+  # genext2fs -z -I 256 -r 0 -b 2032 part1.img   (with genext2fs 1.4-rc1)
+  # genext2fs -z -N 256 -m 0 -b 2032 part1.img   (with genext2fs >= 1.4)
 
 If mke2fs is used instead, do not forget to remove lost+found afterwards.
 

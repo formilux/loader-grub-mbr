@@ -1,9 +1,11 @@
 # set to anything other than empty to see commands being executed
 V =
 
-FWVER     = 0.6
-BASE_KVER = 2.6.16
-KVER      = 2.6.16.36
+FWVER         = 0.6
+BASE_KVER     = 2.6.16
+KVER          = 2.6.16.36
+GRUBVER       = 0.96
+GENE2FSVER    = 1.4
 
 CURDIR        := $(shell pwd)
 FINAL_DIR     := $(CURDIR)/image
@@ -45,13 +47,17 @@ endif
 ######## end of configuration, beginning of the standard targets #######
 
 help:
-	@echo "Usage: make < help | check | rootfs | kernel | clean | mrproper | distclean >"
+	@echo "Usage: make < help|check|rootfs|kernel|loader|clean|mrproper|distclean>"
+	@echo
+	@echo "  Supported platforms (may be reduced with 'PLATFORMS=xxx') :"
+	@echo "      >> $(PLATFORMS) <<"
+	@echo
 	@echo "  Use 'check' to check your build environment."
 	@echo "  Use 'mrproper' to clean the 'build' directory and temp files."
 	@echo "  Use 'distclean' to clean everything including final files."
 	@echo "  Use 'rootfs' FIRST to build only the initramfs."
-	@echo "  Use 'kernel' to build the final firmware image for the following platforms :"
-	@echo "      >> $(PLATFORMS) <<"
+	@echo "  Use 'kernel' to build the bootable kernel image for all platforms."
+	@echo "  Use 'loader' to produce the GRUB FS and disk images for all platforms."
 	@echo
 
 check:
@@ -67,6 +73,13 @@ ifneq ($(KVER),$(BASE_KVER))
 	@echo -n "Checking kernel source patch-$(KVER).bz2 : "
 	@[ -s "$(SOURCE_DIR)/patch-$(KVER).bz2" ] && echo "OK" || echo "$(cmd_make) rootfs may fail."
 endif
+
+	@echo -n "Checking grub source grub-$(GRUBVER).tar.bz2 : "
+	@[ -s "$(SOURCE_DIR)/grub-$(GRUBVER).tar.bz2" ] && echo "OK" || echo "$(cmd_make) loader will fail."
+
+	@echo -n "Checking genext2fs source genext2fs-$(GENE2FSVER).tar.bz2 : "
+	@[ -s "$(SOURCE_DIR)/genext2fs-$(GENE2FSVER).tar.bz2" ] && echo "OK" || echo "$(cmd_make) loader will fail."
+
 	@echo -n "Checking cmd_gzip ($(cmd_gzip)) : "
 	@$(cmd_gzip) -c9 </dev/null >/dev/null 2>&1 && echo "OK" || echo "Failed"
 	@echo -n "Checking cmd_bzip2 ($(cmd_bzip2)) : "
@@ -217,3 +230,77 @@ $(BUILD_DIR)/kernel/linux-$(BASE_KVER)/.extracted: $(SOURCE_DIR)/linux-$(BASE_KV
 	$(Q) $(cmd_tar) -C $(BUILD_DIR)/kernel -jxf $<
 	$(Q) touch $@
 	@echo "  -> done."
+
+
+#### loader
+
+loader: $(patsubst %,$(FINAL_DIR)/bootstrap-$(FWVER)-%.fs,$(PLATFORMS))
+
+$(patsubst %,$(FINAL_DIR)/bootstrap-$(FWVER)-%.fs,$(PLATFORMS)): \
+	$(FINAL_DIR)/bootstrap-$(FWVER)-%.fs: $(FINAL_DIR)/firmware-$(FWVER)-%.img \
+	$(BUILD_DIR)/tools/grub-$(GRUBVER)/grub/grub \
+	$(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/genext2fs \
+	./loader/create-part
+
+	$(Q) ./loader/create-part $(FINAL_DIR) $(FWVER) \
+	    $(patsubst $(FINAL_DIR)/bootstrap-$(FWVER)-%.fs,%,$@) $(BUILD_DIR) \
+	    $(BUILD_DIR)/tools/grub-$(GRUBVER)/grub/grub \
+	    $(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/genext2fs
+
+	@echo "Bootstrap $(FWVER) for $(patsubst $(FINAL_DIR)/bootstrap-$(FWVER)-%.fs,%,$@) is available here :"
+	@echo "  -> $(FINAL_DIR)/bootstrap-$(FWVER)-*.{fs,dsk}"
+
+
+#### tools
+
+# 1) grub
+$(BUILD_DIR)/tools/grub-$(GRUBVER)/.extracted: $(SOURCE_DIR)/grub-$(GRUBVER).tar.bz2
+	@echo "Extracting grub $(GRUBVER)..."
+	$(Q) mkdir -p $(BUILD_DIR)/tools
+	$(Q) $(cmd_tar) -C $(BUILD_DIR)/tools -jxf $<
+	$(Q) touch $@
+	@echo "  -> done."
+
+$(BUILD_DIR)/tools/grub-$(GRUBVER)/.configured: $(BUILD_DIR)/tools/grub-$(GRUBVER)/.extracted
+	@echo "Configuring grub $(GRUBVER)..."
+	$(Q) ( \
+	  cd $(BUILD_DIR)/tools/grub-$(GRUBVER); \
+	  ./configure  --disable-fat --disable-ffs --disable-ufs2 --disable-minix \
+	               --disable-reiserfs --disable-vstafs --disable-jfs --disable-xfs \
+	               --disable-iso9660 --disable-gunzip --disable-md5-password \
+	               --without-curses --disable-hercules --disable-serial \
+	)
+	$(Q) touch $@
+	@echo "  -> done."
+
+$(BUILD_DIR)/tools/grub-$(GRUBVER)/grub/grub: $(BUILD_DIR)/tools/grub-$(GRUBVER)/.configured
+	@echo "Building grub $(GRUBVER)..."
+	$(Q) (cd $(BUILD_DIR)/tools/grub-$(GRUBVER); $(cmd_make) )
+	$(Q) strip $@
+	@echo "  -> done."
+
+
+# 2) genext2fs
+$(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/.extracted: $(SOURCE_DIR)/genext2fs-$(GENE2FSVER).tar.bz2
+	@echo "Extracting grub $(GENE2FSVER)..."
+	$(Q) mkdir -p $(BUILD_DIR)/tools
+	$(Q) $(cmd_tar) -C $(BUILD_DIR)/tools -jxf $<
+	$(Q) touch $@
+	@echo "  -> done."
+
+$(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/.configured: $(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/.extracted
+	@echo "Configuring genext2fs $(GENE2FSVER)..."
+	$(Q) ( \
+	  cd $(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER); \
+	  ( [ -e configure ] || ./autogen.sh ) && ./configure \
+	)
+	$(Q) touch $@
+	@echo "  -> done."
+
+$(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/genext2fs: $(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/.configured
+	@echo "Configuring genext2fs $(GENE2FSVER)..."
+	$(Q) (cd $(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER); $(cmd_make) )
+	$(Q) strip $@
+	@echo "  -> done."
+
+
