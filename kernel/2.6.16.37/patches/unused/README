@@ -1,0 +1,6 @@
+2007/01/02 - WTA
+Here are the LZMA patches.
+When they are applied, the kernel image size is further reduced by about 10%,
+but it's twice as slow to decompress. For this reason, they might not always
+be really worth being merged.
+

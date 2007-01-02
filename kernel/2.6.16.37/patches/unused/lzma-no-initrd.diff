@@ -1,0 +1,13 @@
+--- ./init/initramfs.c.orig	2007-01-02 16:05:30 +0100
++++ ./init/initramfs.c	2007-01-02 16:06:32 +0100
+@@ -417,6 +417,10 @@
+ #define _LZMA_IN_CB
+ #define _LZMA_OUT_READ
+ #include "LzmaDecode.h"
++#ifndef CONFIG_BLK_DEV_RAM
++/* this one must only be included once */
++#include "LzmaDecode.c"
++#endif
+ 
+ static int read_byte(void *object, const unsigned char **buffer, SizeT *bufferSize)
+ {
