@@ -1,5 +1,6 @@
 # set to anything other than empty to see commands being executed
 V =
+NOCLEAN =
 
 FWVER         = 0.6
 BASE_KVER     = 2.6.16
@@ -19,7 +20,8 @@ TEMP_FILES    := $(KDIR)/output $(KDIR)/prebuilt/initramfs_data.cpio
 PERM_FILES    := $(INITRAMFS)
 
 # Use the configuration suffixes to determine the list of platforms
-PLATFORMS     := $(shell x=( $$(echo kernel/$(KVER)/configs/config-$(KVER)-$(FWVER)-*) ); echo $${x[@]\#\#*-})
+PLATFORMS     := $(shell x=( $$(echo kernel/$(KVER)/configs/config-$(KVER)-*) ); \
+	           echo $${x[@]\#\#*-}|tr ' ' '\n'|sort -u )
 
 # various commands which can be overridden by the command line.
 
@@ -167,7 +169,7 @@ $(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
 
 $(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
   $(KDIR)/output/firmware-$(FWVER)-%.img: \
-  kernel/$(KVER)/configs/config-$(KVER)-$(FWVER)-% \
+  kernel/$(KVER)/configs/config-$(KVER)-% \
   $(KDIR)/.patched $(KDIR)/prebuilt/initramfs_data.cpio
 	@echo "Building firmware version $(FWVER) for $(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,%,$@)..."
 	$(Q) rm -f $@
@@ -176,9 +178,11 @@ $(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
 	$(Q) cp $< $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,%/.config,$@)
 	@(cd $(KDIR); unset KBUILD_OUTPUT; $(cmd_make) mrproper;              \
 	  export KBUILD_OUTPUT=$(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,%,$@);      \
-	  echo "  - cleaning everything and updating config...";              \
-	  $(cmd_make) clean ;                                                 \
-	  $(cmd_make) oldconfig > $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,config-%.log,$@); \
+	  if [ -z "$(NOCLEAN)" ]; then \
+	    echo "  - cleaning everything and updating config...";              \
+	    $(cmd_make) clean ;                                                 \
+	    $(cmd_make) oldconfig > $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,config-%.log,$@); \
+	  fi; \
 	  echo "  - compiling kernel $(KVER) for $${KBUILD_OUTPUT##*/}...";   \
 	  if $(cmd_make) bzImage                                              \
 	        CC="$(cmd_kgcc)" cmd_lzmaramfs="$(cmd_lzma) e \$$< \$$@ -d19" \

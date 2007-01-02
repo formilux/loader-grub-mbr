@@ -1,0 +1,86 @@
+[42949372.960000] Linux version 2.6.16.36-devhda (willy@wtap) (gcc version 3.4.4) #3 Tue Jan 2 11:54:51 CET 2007
+[42949372.960000] BIOS-provided physical RAM map:
+[42949372.960000]  BIOS-e820: 0000000000000000 - 000000000009e000 (usable)
+[42949372.960000]  BIOS-e820: 000000000009e000 - 00000000000a0000 (reserved)
+[42949372.960000]  BIOS-e820: 00000000000f0000 - 0000000000100000 (reserved)
+[42949372.960000]  BIOS-e820: 0000000000100000 - 000000000fbc0000 (usable)
+[42949372.960000]  BIOS-e820: 00000000ffff0000 - 0000000100000000 (reserved)
+[42949372.960000] 251MB LOWMEM available.
+[42949372.960000] On node 0 totalpages: 64448
+[42949372.960000]   DMA zone: 4096 pages, LIFO batch:0
+[42949372.960000]   DMA32 zone: 0 pages, LIFO batch:0
+[42949372.960000]   Normal zone: 60352 pages, LIFO batch:15
+[42949372.960000]   HighMem zone: 0 pages, LIFO batch:0
+[42949372.960000] DMI 2.2 present.
+[42949372.960000] ACPI: Unable to locate RSDP
+[42949372.960000] Allocating PCI resources starting at 10000000 (gap: 0fbc0000:f0430000)
+[42949372.960000] Built 1 zonelists
+[42949372.960000] Kernel command line: quiet console=ttyS0,9600 panic=1 flash=hda2
+[42949372.960000] Initializing CPU#0
+[42949372.960000] PID hash table entries: 1024 (order: 10, 16384 bytes)
+[    0.000000] Detected 332.046 MHz processor.
+[   27.247095] Using tsc for high-res timesource
+[   27.296510] Dentry cache hash table entries: 32768 (order: 5, 131072 bytes)
+[   27.297838] Inode-cache hash table entries: 16384 (order: 4, 65536 bytes)
+[   27.349253] Memory: 253184k/257792k available (955k kernel code, 4144k reserved, 208k data, 404k init, 0k highmem)
+[   27.349299] Checking if this processor honours the WP bit even in supervisor mode... Ok.
+[   27.491639] Calibrating delay using timer specific routine.. 665.64 BogoMIPS (lpj=3328220)
+[   27.491950] Mount-cache hash table entries: 512
+[   27.492431] CPU: After generic identify, caps: 0080a13d c0c0a13d 00000000 00000000 00000000 00000000 00000000
+[   27.492505] CPU: After vendor identify, caps: 0080a13d c0c0a13d 00000000 00000000 00000000 00000000 00000000
+[   27.492578] CPU: L1 I Cache: 16K (32 bytes/line), D cache 16K (32 bytes/line)
+[   27.492610] CPU: After all inits, caps: 0080a13d c0c0a13d 00000000 00000000 00000000 00000000 00000000
+[   27.492698] CPU: NSC Geode(TM) Integrated Processor by National Semi stepping 02
+[   27.492747] Checking 'hlt' instruction... OK.
+[   27.531625] Checking for popad bug... OK.
+[   27.641563] NET: Registered protocol family 16
+[   27.642484] PCI: PCI BIOS revision 2.10 entry at 0xfae00, last bus=0
+[   27.642597] PCI: Using configuration type 1
+[   27.645049] ACPI: Subsystem revision 20060127
+[   27.645076] ACPI: Interpreter disabled.
+[   27.645134] PCI: Probing PCI hardware
+[   27.645160] PCI: Probing PCI hardware (bus 00)
+[   27.648223] Boot video device is 0000:00:01.1
+[   27.674282] PCI: Ignore bogus resource 6 [0:0] of 0000:00:01.1
+[   27.675191] io scheduler noop registered (default)
+[   27.711985] Panel driver version 0.9.5 not yet registered
+[   27.712041] Non-volatile memory driver v1.2
+[   27.712072] Serial: 8250/16550 driver $Revision: 1.90 $ 2 ports, IRQ sharing disabled
+[   27.712270] serial8250: ttyS0 at I/O 0x3f8 (irq = 4) is a 16550A
+[   27.712587] Intel(R) PRO/1000 Network Driver - version 6.3.9-k4
+[   27.712617] Copyright (c) 1999-2005 Intel Corporation.
+[   27.712703] pcnet32.c:v1.31c 01.Nov.2005 tsbogend@alpha.franken.de
+[   27.712753] e100: Intel(R) PRO/100 Network Driver, 3.5.10-k2-NAPI
+[   27.712781] e100: Copyright(c) 1999-2005 Intel Corporation
+[   27.712991] 8139too Fast Ethernet driver 0.9.27
+[   27.713384] eth0: RealTek RTL8139 at 0xd0800000, 00:02:b6:34:57:09, IRQ 5
+[   27.713417] eth0:  Identified 8139 chip type 'RTL-8100B/8139D'
+[   27.713830] eth1: RealTek RTL8139 at 0xd0802000, 00:02:b6:34:57:08, IRQ 10
+[   27.713864] eth1:  Identified 8139 chip type 'RTL-8100B/8139D'
+[   27.714280] eth2: RealTek RTL8139 at 0xd0804000, 00:02:b6:34:57:07, IRQ 11
+[   27.714313] eth2:  Identified 8139 chip type 'RTL-8100B/8139D'
+[   27.714360] Uniform Multi-Platform E-IDE driver Revision: 7.00alpha2
+[   27.714396] ide: Assuming 33MHz system bus speed for PIO modes; override with idebus=xx
+[   27.714490] CS5535: IDE controller at PCI slot 0000:00:0f.2
+[   27.714733] CS5535: chipset revision 0
+[   27.714758] CS5535: not 100% native mode: will probe irqs later
+[   27.714834]     ide0: BM-DMA at 0xff00-0xff07, BIOS settings: hda:pio, hdb:pio
+[   27.714933] Probing IDE interface ide0...
+[   28.161743] hda: Hitachi XXM2.3.0, CFA DISK drive
+[   28.882239] hda: set_drive_speed_status: status=0x51 { DriveReady SeekComplete Error }
+[   28.882287] hda: set_drive_speed_status: error=0x04 { DriveStatusError }
+[   28.882420] ide0 at 0x1f0-0x1f7,0x3f6 on irq 14
+[   28.882701] Probing IDE interface ide1...
+[   29.481135] hda: max request size: 128KiB
+[   29.481169] hda: 125184 sectors (64 MB) w/1KiB Cache, CHS=978/4/32
+[   29.481288]  hda: hda1 hda2 hda3 hda4
+[   29.485774] NET: Registered protocol family 2
+[   29.571112] IP route cache hash table entries: 2048 (order: 1, 8192 bytes)
+[   29.571354] TCP established hash table entries: 8192 (order: 3, 32768 bytes)
+[   29.571644] TCP bind hash table entries: 8192 (order: 3, 32768 bytes)
+[   29.571893] TCP: Hash tables configured (established 8192 bind 8192)
+[   29.571922] TCP reno registered
+[   29.571965] Using IPI Shortcut mode
+[   29.573016] Freeing unused kernel memory: 404k freed
+[   29.573076] Warning: unable to open an initial console.
+[  204.657364] eth0: link up, 100Mbps, full-duplex, lpa 0x45E1

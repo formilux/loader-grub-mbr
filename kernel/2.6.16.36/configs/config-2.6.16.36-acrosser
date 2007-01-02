@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.16-rc4
-# Mon Feb 20 13:04:47 2006
+# Linux kernel version: 2.6.16.36
+# Tue Jan  2 12:50:27 2007
 #
 CONFIG_X86_32=y
 CONFIG_SEMAPHORE_SLEEPERS=y
@@ -22,7 +22,7 @@ CONFIG_INIT_ENV_ARG_LIMIT=32
 #
 # General setup
 #
-CONFIG_LOCALVERSION="-light"
+CONFIG_LOCALVERSION="-acrosser"
 # CONFIG_LOCALVERSION_AUTO is not set
 # CONFIG_SWAP is not set
 # CONFIG_SYSVIPC is not set
@@ -327,13 +327,7 @@ CONFIG_PREVENT_FIRMWARE_BUILD=y
 #
 # Parallel port support
 #
-CONFIG_PARPORT=y
-CONFIG_PARPORT_PC=y
-# CONFIG_PARPORT_SERIAL is not set
-# CONFIG_PARPORT_PC_FIFO is not set
-# CONFIG_PARPORT_PC_SUPERIO is not set
-# CONFIG_PARPORT_GSC is not set
-# CONFIG_PARPORT_1284 is not set
+# CONFIG_PARPORT is not set
 
 #
 # Plug and Play support
@@ -343,7 +337,6 @@ CONFIG_PARPORT_PC=y
 # Block devices
 #
 # CONFIG_BLK_DEV_FD is not set
-# CONFIG_PARIDE is not set
 # CONFIG_BLK_CPQ_DA is not set
 # CONFIG_BLK_CPQ_CISS_DA is not set
 # CONFIG_BLK_DEV_DAC960 is not set
@@ -353,7 +346,7 @@ CONFIG_PARPORT_PC=y
 # CONFIG_BLK_DEV_NBD is not set
 # CONFIG_BLK_DEV_SX8 is not set
 # CONFIG_BLK_DEV_RAM is not set
-CONFIG_BLK_DEV_RAM_COUNT=2
+CONFIG_BLK_DEV_RAM_COUNT=16
 # CONFIG_BLK_DEV_INITRD is not set
 # CONFIG_CDROM_PKTCDVD is not set
 # CONFIG_ATA_OVER_ETH is not set
@@ -477,7 +470,6 @@ CONFIG_8139TOO=y
 # CONFIG_SUNDANCE is not set
 # CONFIG_TLAN is not set
 # CONFIG_VIA_RHINE is not set
-# CONFIG_NET_POCKET is not set
 
 #
 # Ethernet (1000 Mbit)
@@ -520,7 +512,6 @@ CONFIG_8139TOO=y
 # CONFIG_WAN is not set
 # CONFIG_FDDI is not set
 # CONFIG_HIPPI is not set
-# CONFIG_PLIP is not set
 # CONFIG_PPP is not set
 # CONFIG_SLIP is not set
 # CONFIG_SHAPER is not set
@@ -572,10 +563,6 @@ CONFIG_SERIAL_CORE_CONSOLE=y
 # CONFIG_SERIAL_JSM is not set
 # CONFIG_UNIX98_PTYS is not set
 # CONFIG_LEGACY_PTYS is not set
-# CONFIG_PRINTER is not set
-# CONFIG_PPDEV is not set
-# CONFIG_TIPAR is not set
-# CONFIG_PANEL is not set
 
 #
 # IPMI
@@ -689,11 +676,7 @@ CONFIG_USB_ARCH_HAS_OHCI=y
 # CONFIG_INFINIBAND is not set
 
 #
-# SN Devices
-#
-
-#
-# EDAC - error detection and reporting (RAS)
+# EDAC - error detection and reporting (RAS) (EXPERIMENTAL)
 #
 # CONFIG_EDAC is not set
 
@@ -788,7 +771,6 @@ CONFIG_MSDOS_PARTITION=y
 # Instrumentation Support
 #
 # CONFIG_PROFILING is not set
-# CONFIG_KPROBES is not set
 
 #
 # Kernel hacking

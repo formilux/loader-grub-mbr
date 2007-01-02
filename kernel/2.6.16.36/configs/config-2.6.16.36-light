@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.16.36
-# Mon Dec 18 18:26:06 2006
+# Linux kernel version: 2.6.16-rc4
+# Mon Feb 20 13:04:47 2006
 #
 CONFIG_X86_32=y
 CONFIG_SEMAPHORE_SLEEPERS=y
@@ -22,7 +22,7 @@ CONFIG_INIT_ENV_ARG_LIMIT=32
 #
 # General setup
 #
-CONFIG_LOCALVERSION="-devhda"
+CONFIG_LOCALVERSION="-light"
 # CONFIG_LOCALVERSION_AUTO is not set
 # CONFIG_SWAP is not set
 # CONFIG_SYSVIPC is not set
@@ -40,7 +40,7 @@ CONFIG_CC_OPTIMIZE_FOR_SIZE=y
 CONFIG_EMBEDDED=y
 # CONFIG_KALLSYMS is not set
 # CONFIG_HOTPLUG is not set
-CONFIG_PRINTK=y
+# CONFIG_PRINTK is not set
 # CONFIG_BUG is not set
 # CONFIG_ELF_CORE is not set
 # CONFIG_BASE_FULL is not set
@@ -160,7 +160,6 @@ CONFIG_SPARSEMEM_STATIC=y
 CONFIG_SPLIT_PTLOCK_CPUS=4
 # CONFIG_MATH_EMULATION is not set
 # CONFIG_MTRR is not set
-# CONFIG_EFI is not set
 CONFIG_REGPARM=y
 # CONFIG_SECCOMP is not set
 CONFIG_HZ_100=y
@@ -174,38 +173,12 @@ CONFIG_PHYSICAL_START=0x100000
 #
 # Power management options (ACPI, APM)
 #
-CONFIG_PM=y
-# CONFIG_PM_LEGACY is not set
-# CONFIG_PM_DEBUG is not set
+# CONFIG_PM is not set
 
 #
 # ACPI (Advanced Configuration and Power Interface) Support
 #
-CONFIG_ACPI=y
-# CONFIG_ACPI_SLEEP is not set
-# CONFIG_ACPI_AC is not set
-# CONFIG_ACPI_BATTERY is not set
-# CONFIG_ACPI_BUTTON is not set
-# CONFIG_ACPI_VIDEO is not set
-# CONFIG_ACPI_HOTKEY is not set
-# CONFIG_ACPI_FAN is not set
-# CONFIG_ACPI_PROCESSOR is not set
-# CONFIG_ACPI_ASUS is not set
-# CONFIG_ACPI_IBM is not set
-# CONFIG_ACPI_TOSHIBA is not set
-# CONFIG_ACPI_CUSTOM_DSDT is not set
-CONFIG_ACPI_BLACKLIST_YEAR=0
-# CONFIG_ACPI_DEBUG is not set
-CONFIG_ACPI_EC=y
-CONFIG_ACPI_POWER=y
-CONFIG_ACPI_SYSTEM=y
-# CONFIG_X86_PM_TIMER is not set
-# CONFIG_ACPI_CONTAINER is not set
-
-#
-# APM (Advanced Power Management) BIOS Support
-#
-# CONFIG_APM is not set
+# CONFIG_ACPI is not set
 
 #
 # CPU Frequency scaling
@@ -218,13 +191,11 @@ CONFIG_ACPI_SYSTEM=y
 CONFIG_PCI=y
 # CONFIG_PCI_GOBIOS is not set
 # CONFIG_PCI_GOMMCONFIG is not set
-# CONFIG_PCI_GODIRECT is not set
-CONFIG_PCI_GOANY=y
-CONFIG_PCI_BIOS=y
+CONFIG_PCI_GODIRECT=y
+# CONFIG_PCI_GOANY is not set
 CONFIG_PCI_DIRECT=y
-CONFIG_PCI_MMCONFIG=y
-CONFIG_PCIEPORTBUS=y
-CONFIG_PCI_LEGACY_PROC=y
+# CONFIG_PCIEPORTBUS is not set
+# CONFIG_PCI_LEGACY_PROC is not set
 # CONFIG_PCI_DEBUG is not set
 CONFIG_ISA_DMA_API=y
 # CONFIG_ISA is not set
@@ -356,8 +327,7 @@ CONFIG_PREVENT_FIRMWARE_BUILD=y
 #
 # Parallel port support
 #
-CONFIG_PARPORT=y
-CONFIG_PARPORT_PC=y
+# CONFIG_PARPORT is not set
 # CONFIG_PARPORT_SERIAL is not set
 # CONFIG_PARPORT_PC_FIFO is not set
 # CONFIG_PARPORT_PC_SUPERIO is not set
@@ -367,7 +337,6 @@ CONFIG_PARPORT_PC=y
 #
 # Plug and Play support
 #
-# CONFIG_PNP is not set
 
 #
 # Block devices
@@ -485,17 +454,17 @@ CONFIG_MII=y
 # CONFIG_NET_TULIP is not set
 # CONFIG_HP100 is not set
 CONFIG_NET_PCI=y
-CONFIG_PCNET32=y
+# CONFIG_PCNET32 is not set
 # CONFIG_AMD8111_ETH is not set
 # CONFIG_ADAPTEC_STARFIRE is not set
 # CONFIG_B44 is not set
 # CONFIG_FORCEDETH is not set
 # CONFIG_DGRS is not set
 # CONFIG_EEPRO100 is not set
-CONFIG_E100=y
+# CONFIG_E100 is not set
 # CONFIG_FEALNX is not set
 # CONFIG_NATSEMI is not set
-CONFIG_NE2K_PCI=y
+# CONFIG_NE2K_PCI is not set
 # CONFIG_8139CP is not set
 CONFIG_8139TOO=y
 # CONFIG_8139TOO_PIO is not set
@@ -514,16 +483,14 @@ CONFIG_8139TOO=y
 #
 # CONFIG_ACENIC is not set
 # CONFIG_DL2K is not set
-CONFIG_E1000=y
-# CONFIG_E1000_NAPI is not set
-# CONFIG_E1000_DISABLE_PACKET_SPLIT is not set
+# CONFIG_E1000 is not set
 # CONFIG_NS83820 is not set
 # CONFIG_HAMACHI is not set
 # CONFIG_YELLOWFIN is not set
 # CONFIG_R8169 is not set
 # CONFIG_SIS190 is not set
 # CONFIG_SKGE is not set
-CONFIG_SKY2=y
+# CONFIG_SKY2 is not set
 # CONFIG_SK98LIN is not set
 # CONFIG_VIA_VELOCITY is not set
 # CONFIG_TIGON3 is not set
@@ -592,7 +559,6 @@ CONFIG_SKY2=y
 #
 CONFIG_SERIAL_8250=y
 CONFIG_SERIAL_8250_CONSOLE=y
-# CONFIG_SERIAL_8250_ACPI is not set
 CONFIG_SERIAL_8250_NR_UARTS=2
 CONFIG_SERIAL_8250_RUNTIME_UARTS=2
 # CONFIG_SERIAL_8250_EXTENDED is not set
@@ -608,11 +574,7 @@ CONFIG_SERIAL_CORE_CONSOLE=y
 # CONFIG_PRINTER is not set
 # CONFIG_PPDEV is not set
 # CONFIG_TIPAR is not set
-CONFIG_PANEL=y
-CONFIG_PANEL_PARPORT=0
-CONFIG_PANEL_PROFILE=4
-CONFIG_PANEL_CHANGE_MESSAGE=y
-CONFIG_PANEL_BOOT_MESSAGE="Initializing..."
+# CONFIG_PANEL is not set
 
 #
 # IPMI
@@ -640,7 +602,6 @@ CONFIG_NVRAM=y
 # CONFIG_MWAVE is not set
 # CONFIG_CS5535_GPIO is not set
 # CONFIG_RAW_DRIVER is not set
-# CONFIG_HPET is not set
 # CONFIG_HANGCHECK_TIMER is not set
 
 #
@@ -727,7 +688,11 @@ CONFIG_USB_ARCH_HAS_OHCI=y
 # CONFIG_INFINIBAND is not set
 
 #
-# EDAC - error detection and reporting (RAS) (EXPERIMENTAL)
+# SN Devices
+#
+
+#
+# EDAC - error detection and reporting (RAS)
 #
 # CONFIG_EDAC is not set
 
@@ -822,6 +787,7 @@ CONFIG_MSDOS_PARTITION=y
 # Instrumentation Support
 #
 # CONFIG_PROFILING is not set
+# CONFIG_KPROBES is not set
 
 #
 # Kernel hacking
@@ -829,7 +795,7 @@ CONFIG_MSDOS_PARTITION=y
 # CONFIG_PRINTK_TIME is not set
 # CONFIG_MAGIC_SYSRQ is not set
 CONFIG_DEBUG_KERNEL=y
-CONFIG_LOG_BUF_SHIFT=18
+CONFIG_LOG_BUF_SHIFT=12
 # CONFIG_DETECT_SOFTLOCKUP is not set
 # CONFIG_SCHEDSTATS is not set
 # CONFIG_DEBUG_MUTEXES is not set

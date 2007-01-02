@@ -7,7 +7,7 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
 # firmware version
-FW_VER=0.6
+FW_VER=0.7
 
 SERIAL_BAUD=115200
 DOWNLOAD_SAVE=N
@@ -333,6 +333,13 @@ do_test_system_partition() {
   partnum=${flash##*[^0-9]}
   mbr=${flash%$partnum}
   
+  # enable IDE 32bit I/O to speed up reading in PIO mode for slow flash cards
+  _io32bit=$(grep io_32bit /proc/ide/${mbr##*/}/settings 2>/dev/null)
+  if [ $? -eq 0 ]; then
+    set -- $_io32bit
+    echo io_32bit:$4 > /proc/ide/${mbr##*/}/settings 2>/dev/null
+  fi
+
   if [ -n "$partnum" -a -z "${partnum##[0-9]*}" ]; then
     newpart=$(( $partnum - 1 ))
     firmware=${mbr}${newpart}
@@ -744,10 +751,10 @@ do_menu_boot_image() {
 	rm -rf $_dir
         return 1
       fi
-      if ! do_confirm "Image is valid. Ready to boot this image"; then
-	rm -rf $_dir
-	return 0
-      fi
+      #if ! do_confirm "Image is valid. Ready to boot this image"; then
+	#rm -rf $_dir
+	#return 0
+      #fi
       # files have been kept in $_dir.
       do_inform "Loading image in memory..."
       if ! kexec -l -c "$(cat $_dir/*/kernel.arg) flash=${FLASH_PART##*/}" \
@@ -783,11 +790,11 @@ do_menu_boot_image() {
       if [ $err -gt 0 ]; then
         do_error "Failed to load image"
       else
-        if ! do_confirm "Image is valid. Ready to boot this image"; then
-          kexec -u >/dev/null 2>&1
-          rm -rf $_dir
-          return 0
-        fi
+        #if ! do_confirm "Image is valid. Ready to boot this image"; then
+          #kexec -u >/dev/null 2>&1
+          #rm -rf $_dir
+          #return 0
+        #fi
         do_inform "Booting image now..."
         kexec -e -x
         do_error "Boot failed"
