@@ -1,0 +1,12 @@
+--- ./drivers/serial/8250.c.bad	2005-05-19 20:00:39.000000000 +0200
++++ ./drivers/serial/8250.c	2005-05-19 20:36:44.000000000 +0200
+@@ -2275,7 +2275,9 @@
+ 	if (line < 0)
+ 		return -ENODEV;
+ 
++#ifdef CONFIG_PRINTK
+ 	add_preferred_console("ttyS", line, options);
++#endif
+ 	printk("Adding console on ttyS%d at %s 0x%lx (options '%s')\n",
+ 		line, port->iotype == UPIO_MEM ? "MMIO" : "I/O port",
+ 		port->iotype == UPIO_MEM ? (unsigned long) port->mapbase :

@@ -1,0 +1,157 @@
+From 575400d1b483fbe9e03c68758059bfaf4e4768d1 Mon Sep 17 00:00:00 2001
+From: H. Peter Anvin <hpa@zytor.com>
+Date: Tue, 26 Sep 2006 10:52:38 +0200
+Subject: [PATCH] i386: Fix the EDD code misparsing the command line
+
+The EDD code would scan the command line as a fixed array, without
+taking account of either whitespace, null-termination, the old
+command-line protocol, late overrides early, or the fact that the
+command line may not be reachable from INITSEG.
+
+This should fix those problems, and enable us to use a longer command
+line.
+
+Signed-off-by: H. Peter Anvin <hpa@zytor.com>
+Signed-off-by: Andi Kleen <ak@suse.de>
+---
+ arch/i386/boot/edd.S |   97 +++++++++++++++++++++++++++++++++++++++-----------
+ include/linux/edd.h  |    1 +
+ 2 files changed, 76 insertions(+), 22 deletions(-)
+
+diff --git a/arch/i386/boot/edd.S b/arch/i386/boot/edd.S
+index 4b84ea2..3432136 100644
+--- a/arch/i386/boot/edd.S
++++ b/arch/i386/boot/edd.S
+@@ -15,42 +15,95 @@ #include <linux/edd.h>
+ #include <asm/setup.h>
+ 
+ #if defined(CONFIG_EDD) || defined(CONFIG_EDD_MODULE)
++
++# It is assumed that %ds == INITSEG here
++
+ 	movb	$0, (EDD_MBR_SIG_NR_BUF)
+ 	movb	$0, (EDDNR)
+ 
+-# Check the command line for two options:
++# Check the command line for options:
+ # edd=of  disables EDD completely  (edd=off)
+ # edd=sk  skips the MBR test    (edd=skipmbr)
++# edd=on  re-enables EDD (edd=on)
++
+ 	pushl	%esi
+-    	cmpl	$0, %cs:cmd_line_ptr
+-	jz	done_cl
++	movw	$edd_mbr_sig_start, %di	# Default to edd=on
++
+ 	movl	%cs:(cmd_line_ptr), %esi
+-# ds:esi has the pointer to the command line now
+-	movl	$(COMMAND_LINE_SIZE-7), %ecx
+-# loop through kernel command line one byte at a time
+-cl_loop:
+-	cmpl	$EDD_CL_EQUALS, (%si)
++	andl	%esi, %esi
++	jz	old_cl			# Old boot protocol?
++
++# Convert to a real-mode pointer in fs:si
++	movl	%esi, %eax
++	shrl	$4, %eax
++	movw	%ax, %fs
++	andw	$0xf, %si
++	jmp	have_cl_pointer
++
++# Old-style boot protocol?
++old_cl:
++	push	%ds			# aka INITSEG
++	pop	%fs
++
++	cmpw	$0xa33f, (0x20)
++	jne	done_cl			# No command line at all?
++	movw	(0x22), %si		# Pointer relative to INITSEG
++
++# fs:si has the pointer to the command line now
++have_cl_pointer:
++
++# Loop through kernel command line one byte at a time.  Just in
++# case the loader is buggy and failed to null-terminate the command line
++# terminate if we get close enough to the end of the segment that we
++# cannot fit "edd=XX"...
++cl_atspace:
++	cmpw	$-5, %si		# Watch for segment wraparound
++	jae	done_cl
++	movl	%fs:(%si), %eax
++	andb	%al, %al		# End of line?
++	jz	done_cl
++	cmpl	$EDD_CL_EQUALS, %eax
+ 	jz	found_edd_equals
+-	incl	%esi
+-	loop	cl_loop
+-	jmp	done_cl
++	cmpb	$0x20, %al		# <= space consider whitespace
++	ja	cl_skipword
++	incw	%si
++	jmp	cl_atspace
++
++cl_skipword:
++	cmpw	$-5, %si		# Watch for segment wraparound
++	jae	done_cl
++	movb	%fs:(%si), %al		# End of string?
++	andb	%al, %al
++	jz	done_cl
++	cmpb	$0x20, %al
++	jbe	cl_atspace
++	incw	%si
++	jmp	cl_skipword
++
+ found_edd_equals:
+ # only looking at first two characters after equals
+-    	addl	$4, %esi
+-	cmpw	$EDD_CL_OFF, (%si)	# edd=of
+-	jz	do_edd_off
+-	cmpw	$EDD_CL_SKIP, (%si)	# edd=sk
+-	jz	do_edd_skipmbr
+-	jmp	done_cl
++# late overrides early on the command line, so keep going after finding something
++	movw	%fs:4(%si), %ax
++	cmpw	$EDD_CL_OFF, %ax	# edd=of
++	je	do_edd_off
++	cmpw	$EDD_CL_SKIP, %ax	# edd=sk
++	je	do_edd_skipmbr
++	cmpw	$EDD_CL_ON, %ax		# edd=on
++	je	do_edd_on
++	jmp	cl_skipword
+ do_edd_skipmbr:
+-    	popl	%esi
+-	jmp	edd_start
++	movw	$edd_start, %di
++	jmp	cl_skipword
+ do_edd_off:
+-	popl	%esi
+-	jmp	edd_done
++	movw	$edd_done, %di
++	jmp	cl_skipword
++do_edd_on:
++	movw	$edd_mbr_sig_start, %di
++	jmp	cl_skipword
++
+ done_cl:
+ 	popl	%esi
+-
++	jmpw	*%di
+ 
+ # Read the first sector of each BIOS disk device and store the 4-byte signature
+ edd_mbr_sig_start:
+diff --git a/include/linux/edd.h b/include/linux/edd.h
+index 162512b..b2b3e68 100644
+--- a/include/linux/edd.h
++++ b/include/linux/edd.h
+@@ -52,6 +52,7 @@ #define EDD_MBR_SIG_NR_BUF 0x1ea  /* add
+ #define EDD_CL_EQUALS   0x3d646465     /* "edd=" */
+ #define EDD_CL_OFF      0x666f         /* "of" for off  */
+ #define EDD_CL_SKIP     0x6b73         /* "sk" for skipmbr */
++#define EDD_CL_ON       0x6e6f	       /* "on" for on */
+ 
+ #ifndef __ASSEMBLY__
+ 
+-- 
+1.4.2.4
+

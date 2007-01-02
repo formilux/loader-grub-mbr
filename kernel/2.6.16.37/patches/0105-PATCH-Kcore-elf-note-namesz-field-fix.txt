@@ -1,0 +1,46 @@
+From 632dd2053a1146c826ceb6f26ab689389c05e751 Mon Sep 17 00:00:00 2001
+From: Vivek Goyal <vgoyal@in.ibm.com>
+Date: Fri, 29 Sep 2006 02:01:45 -0700
+Subject: [PATCH] Kcore elf note namesz field fix
+
+o As per ELF specifications, it looks like that elf note "namesz" field
+  contains the length of "name" including the size of null character.  And
+  currently we are filling "namesz" without taking into the consideration
+  the null character size.
+
+o Kexec-tools performs this check deligently hence I ran into the issue
+  while trying to open /proc/kcore in kexec-tools for some info.
+
+Signed-off-by: Vivek Goyal <vgoyal@in.ibm.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+Signed-off-by: Linus Torvalds <torvalds@osdl.org>
+---
+ fs/proc/kcore.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fs/proc/kcore.c b/fs/proc/kcore.c
+index 3ceff38..1294eda 100644
+--- a/fs/proc/kcore.c
++++ b/fs/proc/kcore.c
+@@ -100,7 +100,7 @@ static int notesize(struct memelfnote *e
+ 	int sz;
+ 
+ 	sz = sizeof(struct elf_note);
+-	sz += roundup(strlen(en->name), 4);
++	sz += roundup((strlen(en->name) + 1), 4);
+ 	sz += roundup(en->datasz, 4);
+ 
+ 	return sz;
+@@ -116,7 +116,7 @@ static char *storenote(struct memelfnote
+ 
+ #define DUMP_WRITE(addr,nr) do { memcpy(bufp,addr,nr); bufp += nr; } while(0)
+ 
+-	en.n_namesz = strlen(men->name);
++	en.n_namesz = strlen(men->name) + 1;
+ 	en.n_descsz = men->datasz;
+ 	en.n_type = men->type;
+ 
+-- 
+1.4.2.4
+

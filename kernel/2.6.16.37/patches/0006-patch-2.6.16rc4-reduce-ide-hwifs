@@ -1,0 +1,32 @@
+This makes it possible to reduce the kernel image size by as much as 4 kB.
+
+--- ./include/asm-i386/ide.h.bad	Sat Feb 18 10:57:38 2006
++++ ./include/asm-i386/ide.h	Sat Feb 18 10:59:07 2006
+@@ -16,11 +16,15 @@
+ #include <linux/config.h>
+ 
+ #ifndef MAX_HWIFS
++#ifdef CONFIG_IDE_MAX_HWIFS
++#define MAX_HWIFS	CONFIG_IDE_MAX_HWIFS
++#else
+ # ifdef CONFIG_BLK_DEV_IDEPCI
+ #define MAX_HWIFS	10
+ # else
+ #define MAX_HWIFS	6
+ # endif
++#endif
+ #endif
+ 
+ #define IDE_ARCH_OBSOLETE_DEFAULTS
+--- ./drivers/ide/Kconfig.bad	Sat Feb 18 07:12:11 2006
++++ ./drivers/ide/Kconfig	Sun Feb 19 23:03:57 2006
+@@ -54,7 +54,7 @@
+ 
+ config IDE_MAX_HWIFS
+ 	int "Max IDE interfaces"
+-	depends on ALPHA || SUPERH || IA64
++	depends on ALPHA || SUPERH || IA64 || X86
+ 	default 4
+ 	help
+ 	  This is the maximum number of IDE hardware interfaces that will
+
