@@ -308,3 +308,4 @@ $(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/genext2fs: $(BUILD_DIR)/tools/genext2
 	@echo "  -> done."
 
 
+.PHONY: help check clean mrproper distclean rootfs kernel loader 
