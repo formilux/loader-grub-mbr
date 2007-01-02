@@ -14,6 +14,9 @@ BUILD_DIR     := $(CURDIR)/build
 SOURCE_DIR    := $(CURDIR)/sources
 
 INITRAMFS     := $(FINAL_DIR)/initramfs_data.cpio
+INSTRAMFS_DIR := $(BUILD_DIR)/instramfs
+INSTRAMFS_PFX := $(FINAL_DIR)/instramfs_data
+
 KDIR          := $(BUILD_DIR)/kernel/linux-$(KVER)
 
 TEMP_FILES    := $(KDIR)/output $(KDIR)/prebuilt/initramfs_data.cpio
@@ -60,6 +63,8 @@ help:
 	@echo "  Use 'rootfs' FIRST to build only the initramfs."
 	@echo "  Use 'kernel' to build the bootable kernel image for all platforms."
 	@echo "  Use 'loader' to produce the GRUB FS and disk images for all platforms."
+	@echo "  Use 'instfs' to embed the disk image in a new root FS for all platforms."
+	@echo "  Use 'instimg' to build a new bootable image with the embedded FS."
 	@echo
 
 check:
@@ -170,7 +175,7 @@ $(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
 $(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
   $(KDIR)/output/firmware-$(FWVER)-%.img: \
   kernel/$(KVER)/configs/config-$(KVER)-% \
-  $(KDIR)/.patched $(KDIR)/prebuilt/initramfs_data.cpio
+  $(KDIR)/.patched $(KDIR)/prebuilt/.data-kernel
 	@echo "Building firmware version $(FWVER) for $(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,%,$@)..."
 	$(Q) rm -f $@
 	$(Q) mkdir -p $(KDIR)/configs $(KDIR)/output
@@ -199,13 +204,16 @@ $(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
 	  fi)
 	@echo "  -> done."
 
-$(KDIR)/prebuilt/initramfs_data.cpio: $(KDIR)/.patched
+$(KDIR)/prebuilt/.data-kernel: $(KDIR)/.patched
 	$(Q) if [ ! -s "$(INITRAMFS)" ]; then \
                echo "Missing rootfs : $(INITRAMFS)."; \
 	       ! echo "  -> Please issue '$(cmd_make) rootfs' first."; \
              fi
 	$(Q) mkdir -p $(KDIR)/prebuilt
-	$(Q) rm -f $@ ; ln -s $(INITRAMFS) $@
+
+	$(Q) rm -f $(KDIR)/prebuilt/.data-* $(KDIR)/prebuilt/initramfs_data.cpio
+	$(Q) ln -s $(INITRAMFS) $(KDIR)/prebuilt/initramfs_data.cpio
+	$(Q) touch $@
 
 $(KDIR)/.patched: $(KDIR)/.updated
 	@echo "Patching kernel $(KVER)..."
@@ -307,5 +315,77 @@ $(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/genext2fs: $(BUILD_DIR)/tools/genext2
 	$(Q) strip $@
 	@echo "  -> done."
 
+#### instfs (initramfs)
 
-.PHONY: help check clean mrproper distclean rootfs kernel loader 
+instfs: $(patsubst %,$(INSTRAMFS_PFX)-%.cpio,$(PLATFORMS))
+
+$(patsubst %,$(INSTRAMFS_PFX)-%.cpio,$(PLATFORMS)): \
+  $(INSTRAMFS_PFX)-%.cpio: $(INSTRAMFS_DIR)/.installed/%
+	@echo "Creating initramfs archive..."
+	$(Q) mkdir -p $(FINAL_DIR)
+	$(Q) for f in .preinit init dev bin/{,busybox,kexec,serial-load} \
+	  bin/{update-boot-image,firmware-cli,grub-mbr-default} \
+	  $$(cd $(INSTRAMFS_DIR)/$(^F) && echo images images/*); do \
+	    echo $$f; \
+	done | \
+	  (cd $(INSTRAMFS_DIR)/$(^F); $(cmd_sudo) $(cmd_cpio) -o -H newc) > $@
+
+$(patsubst %,$(INSTRAMFS_DIR)/.installed/%,$(PLATFORMS)): \
+  $(INSTRAMFS_DIR)/.installed/%: $(FINAL_DIR)/bootstrap-$(FWVER)-%.fs $(BUILD_DIR)/rootfs.installed
+	@echo "Creating instfs archive..."
+	$(Q) mkdir -p $(@D)
+	$(Q) $(cmd_sudo) mkdir -p $(INSTRAMFS_DIR)/$(@F) $(INSTRAMFS_DIR)/$(@F)/images
+	$(Q) $(cmd_sudo) cp -a $(BUILD_DIR)/rootfs/. $(INSTRAMFS_DIR)/$(@F)/
+	$(Q) $(cmd_sudo) cp $(FINAL_DIR)/bootstrap-$(FWVER)-$(@F).dsk $(INSTRAMFS_DIR)/$(@F)/images/
+	$(Q) touch $@
+
+#### instimg (kernel)
+# Note: This part is really tricky because it is used to iterate through
+# all platforms by producing dynamic rules. The difficulty is then to get
+# the platform's name back within the scripts, 
+instimg: $(patsubst %,$(FINAL_DIR)/instimg-$(FWVER)-%.img,$(PLATFORMS))
+
+$(patsubst %,$(FINAL_DIR)/instimg-$(FWVER)-%.img,$(PLATFORMS)): \
+  $(FINAL_DIR)/instimg-$(FWVER)-%.img: $(KDIR)/output/instimg-$(FWVER)-%.img
+
+	$(Q) cp $< $@
+	@echo "Install image $(FWVER) for $(patsubst $(FINAL_DIR)/instimg-$(FWVER)-%.img,%,$@) is available here :"
+	@echo "  -> $(subst $(CURDIR)/,,$@)"
+
+$(patsubst %,$(KDIR)/output/instimg-$(FWVER)-%.img,$(PLATFORMS)): \
+  $(KDIR)/output/instimg-$(FWVER)-%.img: \
+  kernel/$(KVER)/configs/config-$(KVER)-% \
+  $(KDIR)/.patched $(KDIR)/prebuilt/.data-instimg-%
+	@echo "Building instimg version $(FWVER) for $(patsubst $(KDIR)/output/instimg-$(FWVER)-%.img,%,$@)..."
+	$(Q) rm -f $@
+	@(cd $(KDIR); unset KBUILD_OUTPUT; $(cmd_make) mrproper;              \
+	  export KBUILD_OUTPUT=$(KDIR)/output/$(patsubst $(KDIR)/output/instimg-$(FWVER)-%.img,%,$@);      \
+	  echo "  - rebuilding kernel $(KVER) for $${KBUILD_OUTPUT##*/}...";   \
+	  if $(cmd_make) bzImage                                              \
+	        CC="$(cmd_kgcc)" cmd_lzmaramfs="$(cmd_lzma) e \$$< \$$@ -d19" \
+	        cmd_gzip="$(cmd_7za) a -tgzip -mx9 -mpass=4 -so -si . <\$$< >\$$@" \
+	     > $(KDIR)/output/$(patsubst $(KDIR)/output/instimg-$(FWVER)-%.img,instimg-%.log,$@) 2>&1; then  \
+	    ln $${KBUILD_OUTPUT}/arch/i386/boot/bzImage $@;                   \
+	  else                                                                \
+	    echo "Failed !!!"; echo ;                                         \
+	    echo "Tail of output/instimg-$${KBUILD_OUTPUT##*/}.log :";        \
+	    echo " ------ ";                                                  \
+	    tail -10 $(KDIR)/output/$(patsubst $(KDIR)/output/instimg-$(FWVER)-%.img,instimg-%.log,$@);      \
+	    echo " ------ ";                                                  \
+	    exit 1;                                                           \
+	  fi)
+	@echo "  -> done."
+
+$(patsubst %,$(KDIR)/prebuilt/.data-instimg-%,$(PLATFORMS)): \
+  $(KDIR)/prebuilt/.data-instimg-%:
+	$(Q) if [ ! -s "$(INSTRAMFS_PFX)-$(patsubst $(KDIR)/prebuilt/.data-instimg-%,%,$@).cpio" ]; then \
+               echo "Missing instfs : $(INSTRAMFS_PFX)-$(patsubst $(KDIR)/prebuilt/.data-instimg-%,%,$@).cpio."; \
+	       ! echo "  -> Please issue '$(cmd_make) instfs' first."; \
+             fi
+	$(Q) mkdir -p $(KDIR)/prebuilt
+
+	$(Q) rm -f $(KDIR)/prebuilt/.data-* $(KDIR)/prebuilt/initramfs_data.cpio
+	$(Q) ln -s $(INSTRAMFS_PFX)-$(patsubst $(KDIR)/prebuilt/.data-instimg-%,%,$@).cpio $(KDIR)/prebuilt/initramfs_data.cpio
+	$(Q) touch $@
+
+.PHONY: help check clean mrproper distclean rootfs kernel loader
