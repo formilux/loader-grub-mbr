@@ -1,0 +1,70 @@
+                   HOW TO MOUNT ROOTFS FROM A LOOP DEVICE
+                    rev 0.1 - 2007/06/22 - willy tarreau
+                             --- proposal ---
+
+1. Goal
+-------
+
+The goal is to be able to use arbitrary sized rootfs images on the appliance.
+With everything in the initrd, we are limited by the RAM size. Also, the initrd
+takes much memory for mostly unused data (eg: 20 MB on UTMGW).
+
+2. Proposal
+-----------
+
+With the new firmware base, the image location will be known to the userspace.
+We could package a mini-initrd (or initramfs in 2.6) which will bootstrap the
+rootfs relying on these information.
+
+To maintain compatibility with existing boot loaders, this mini-initrd will
+still be packaged under the name "initrd.img", and the real rootfs will be
+packaged under the name "rootfs.img".
+
+The mini-initrd will contain a preinit script which will create the block
+devices. It will also mount /proc in order to be able to read cmdline and
+get the "flash=" variable, as well as the "img=" variable.
+
+Then it will execute a small binary which, based on those information, will
+create a link in /dev (eg: /dev/flash) and a link from /tmp pointing to the
+subdirectory from the mount point (eg: /mnt).
+
+Preinit takes control back. It just has to mount /dev/flash to /mnt/ for
+instance, in read-only mode, and with a hard-coded fs type, which will be
+ext2 for now (shipped with the bootloader). Ideally, this one should be
+specified on the cmdline. Let's assume that if we do not find its type on
+the cmdline, it is ext2. One possible solution to specify it would be to
+add a colon after the device name :
+
+  flash=hdc2:ext2
+
+Then, the preinit would losetup and mount the initrd with another hard-defined
+FS type. This is not a problem right now because the initrd will always be
+shipped with the rootfs :
+
+  mt /dev/flash /mnt/flash ext2 ro
+
+Now we have two options:
+  - lo /dev/loop0 /tmp/link && mt /dev/loop0 /mnt/root squashfs ro
+
+  - cp /tmp/link /dev/ram1 && mount -r /dev/ram1 /mnt/root
+    This one will be faster than grub to achieve the same result (rootfs all
+    in RAM).
+
+Whatever is done, we can now pivot root :
+
+  um /proc
+  um /dev
+  um /tmp
+  um /var
+  pr /mnt/root mnt/oldroot
+
+Now it is tricky to umount the old FS because under /mnt/oldroot/mnt/flash
+there is the flash. This one may be moved to somewhere else with a
+mount --move. The /mnt/oldroot will be unmountable once the init will have
+exited or switched to a new one using exec().
+
+We can terminate with "in /sbin/init" or with an exit. The initrd can now exit
+to be completely freed. One possible solution to perform everything at once
+would be to "exec /sbin/umount /mnt/oldroot". This is valid only if the preinit
+has been called as a /linuxrc.
+
