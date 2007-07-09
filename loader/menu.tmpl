@@ -5,80 +5,54 @@
 hiddenmenu
 
 serial --unit=0 --speed=9600
-terminal serial
+terminal --timeout=3 console serial
+
+# Here comes the mapping between saved entries and usable entries. All
+# unexpected entries should be mapped to any image in order not to loop.
+# Old entries 0..4 are remapped too.
+savemap 240:0:241 244:1:245 241:0:242 242:1:243 243:1:246 245:1:246 246:0:247 247:0:242 0:0:241 1:0:242 2:1:245 3:1:246 4:0:241
 
 default saved
-timeout 2
-fallback 0 1 2 3 4 5 6
+timeout 3
+fallback 0 1 2
 
 # image 0
-title Active Image
+title Image 1
    root (hd0,1)
-   savedefault 1
-   kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH%
+   savedefault savemap
+   kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH% img=active
    initrd /sys/active/initrd.img 
 
 # image 1
-title Active Image (retry)
+title Image 2
    root (hd0,1)
-   savedefault 2
-   kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH%
-   initrd /sys/active/initrd.img 
+   savedefault savemap
+   kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH% img=backup
+   initrd /sys/backup/initrd.img 
 
 # image 2
-title Backup Image
-   root (hd0,1)
-   savedefault 3
-   kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH%
-   initrd /sys/backup/initrd.img 
-
-# image 3
-title Backup Image (retry)
-   root (hd0,1)
-   savedefault 4
-   kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH%
-   initrd /sys/backup/initrd.img 
-
-# image 4
-### THIS IMAGE CAN BE COMMENTED OUT
-title Active-RW
-   root (hd0,1)
-   # a successful boot will round it down to 4
-   savedefault 5
-   kernel /sys/active/kernel.img root=/dev/hdc4 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH%
-
-# image 5
-### THIS IMAGE CAN BE COMMENTED OUT
-title Active-RW (retry)
-   root (hd0,1)
-   # a successful boot will round it down to 4
-   savedefault 6
-   kernel /sys/active/kernel.img root=/dev/hdc4 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH%
-
-# image 4 or 6
 title Maintenance Kernel
    root (hd0,0)
-   # next boot should retry active conf.
-   savedefault 0
-   kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 flash=%FLASH%
+   kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 flash=%FLASH% img=maint
 
-# development kernel
-### THIS IMAGE CAN BE COMMENTED OUT
-title Maintenance Kernel (development)
-   root (hd0,0)
-   # next boot will stay on this image
-   savedefault
-   kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 flash=%FLASH%
-
-# image 5, 6 or 8
+# image 3
 title Reboot
-   # ensure that we never loop
-   savedefault 0
    reboot
 
-# image 6, 7 or 9
+# image 4
 title Halt
-   # ensure that we never loop
-   savedefault 0
    halt
 
+# image 5
+### THIS IMAGE SHOULD BE COMMENTED OUT
+title Active-RW
+   root (hd0,1)
+   savedefault
+   kernel /sys/active/kernel.img root=/dev/hdc4 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH% img=active
+
+# image 6
+### THIS IMAGE SHOULD BE COMMENTED OUT
+title Backup-RW
+   root (hd0,1)
+   savedefault
+   kernel /sys/backup/kernel.img root=/dev/hdc4 ro auto quiet console=ttyS0,9600 panic=1 flash=%FLASH% img=backup

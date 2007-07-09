@@ -2,7 +2,7 @@
 V =
 NOCLEAN =
 
-FWVER         = 0.7
+FWVER         = 1.0
 BASE_KVER     = 2.6.16
 KVER          = 2.6.16.37
 GRUBVER       = 0.96
