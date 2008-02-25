@@ -50,6 +50,13 @@ Now we have two options:
     This one will be faster than grub to achieve the same result (rootfs all
     in RAM).
 
+
+Now we can/should move the flash to a subdir of the new FS :
+  /sbin/mount --move /mnt/flash  /mnt/root/mnt/flash
+
+Alternatively, we can unmount it (lazy unmount) :
+  um /mnt/flash
+
 Whatever is done, we can now pivot root :
 
   um /proc
@@ -62,7 +69,11 @@ Now it is tricky to umount the old FS because under /mnt/oldroot/mnt/flash
 there is the flash. This one may be moved to somewhere else with a
 mount --move. The /mnt/oldroot will be unmountable once the init will have
 exited or switched to a new one using exec(). Alternatively, we can call
-umount2("/mnt/oldroot", MNT_DETACH) to perform a lazy unmount.
+umount2("/mnt/oldroot", MNT_DETACH) to perform a lazy unmount :
+
+From there, we can already unmount the old ram device if needed :
+
+  um /mnt/oldroot
 
 We can terminate with "in /sbin/init" or with an exit. The initrd can now exit
 to be completely freed. One possible solution to perform everything at once
@@ -72,3 +83,12 @@ has been called as a /linuxrc. But this should not be necessary with MNT_DETACH.
 Under certain circumstances, it would be very useful to keep the old root in
 memory. For instance, an initramfs may carry kernel modules which we will like
 to be able to load at any time.
+
+Then, to finish :
+  in /sbin/init
+
+Note that if the image mapped on the loop device is changed, there will be
+busy inodes till the next reboot. These areas will not be freed until a clean
+FS unmount. We should then try hard never to unlink nor change the FS image.
+
+
