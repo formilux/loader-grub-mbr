@@ -1,0 +1,19 @@
+Disable keyboard repeat rate if no keyboard is enabled
+
+--- ./arch/i386/boot/setup.S.bad	2005-11-11 21:49:14 +0100
++++ ./arch/i386/boot/setup.S	2008-02-17 13:34:03 +0100
+@@ -390,10 +390,13 @@
+ 	int	$0x15
+ 	movw	%ax, (2)
+ 
+-# Set the keyboard repeat rate to the max
++#ifdef CONFIG_INPUT_KEYBOARD
++# Set the keyboard repeat rate to the max. This may take several
++# seconds if the system has no keyboard controller.
+ 	movw	$0x0305, %ax
+ 	xorw	%bx, %bx
+ 	int	$0x16
++#endif
+ 
+ # Check for video adapter and its parameters and allow the
+ # user to browse video modes.
