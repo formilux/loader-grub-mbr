@@ -46,6 +46,8 @@ NET_PORT_HTTP=
 NET_PORT_RAW=
 NET_PORT_TFTP=
 
+# state variables
+PEND_IMG=
 
 # returns 0 if $1 is numerical, otherwise 1.
 do_test_num() {
@@ -668,11 +670,11 @@ do_menu_download_image() {
   do_menu "Download image|Download from serial port|Download from an HTTP server|Download from an FTP server|Download from a TFTP server|Download from a RAW TCP server"
   err=1
   case $LINE in
-    1) do_serial_download       ; err=$? ;;
-    2) do_network_download HTTP ; err=$? ;;
-    3) do_network_download FTP  ; err=$? ;;
-    4) do_network_download TFTP ; err=$? ;;
-    5) do_network_download RAW  ; err=$? ;;
+    1) do_serial_download       ; err=$? ; PEND_IMG="" ;;
+    2) do_network_download HTTP ; err=$? ; PEND_IMG="" ;;
+    3) do_network_download FTP  ; err=$? ; PEND_IMG="" ;;
+    4) do_network_download TFTP ; err=$? ; PEND_IMG="" ;;
+    5) do_network_download RAW  ; err=$? ; PEND_IMG="" ;;
   esac
   [ $err = 0 ] && do_inform "Do not forget to save this image."
   return $?
@@ -723,6 +725,7 @@ do_check_and_save_image() {
   do_inform
   do_inform "New image has been saved and activated as the default one."
   do_prompt
+  PEND_IMG="active"
   return 0
 }
 
@@ -757,7 +760,8 @@ do_menu_boot_image() {
       #fi
       # files have been kept in $_dir.
       do_inform "Loading image in memory..."
-      if ! kexec -l -c "$(cat $_dir/*/kernel.arg) flash=${FLASH_PART##*/}" \
+      _kargs="$(cat $_dir/*/kernel.arg)"; _kargs="$(echo $_kargs|sed 's/console=[^ ]*[ ]*//')"
+      if ! kexec -l -c "$_kargs ${CONSOLE:+$CONSOLE }flash=${FLASH_PART##*/}${PEND_IMG:+ img=$PEND_IMG}" \
            -i "$(echo $_dir/*/initrd.img)" $_dir/*/kernel.img; then
         do_error "Failed to load image"
       else
@@ -775,13 +779,15 @@ do_menu_boot_image() {
       mount -r $flash $FLASH_MNT >/dev/null 2>&1
       if [ $LINE = 2 ]; then     ### active image
         do_inform "Loading active image in memory..."
-        kexec -l -c "$(cat $FLASH_MNT/sys/active/kernel.arg) flash=${FLASH_PART##*/}" -i "$(echo $FLASH_MNT/sys/active/initrd.img)" $FLASH_MNT/sys/active/kernel.img
+	_kargs="$(cat $FLASH_MNT/sys/active/kernel.arg)"; _kargs="$(echo $_kargs|sed 's/console=[^ ]*[ ]*//')"
+        kexec -l -c "$_kargs ${CONSOLE:+$CONSOLE }flash=${FLASH_PART##*/} img=active" -i "$(echo $FLASH_MNT/sys/active/initrd.img)" $FLASH_MNT/sys/active/kernel.img
 	err=$?
         # fake current boot to "active(retry)"
         grub-mbr-default -q $FLASH_MBR 2
       else
         do_inform "Loading backup image in memory..."
-        kexec -l -c "$(cat $FLASH_MNT/sys/backup/kernel.arg) flash=${FLASH_PART##*/}" -i "$(echo $FLASH_MNT/sys/backup/initrd.img)" $FLASH_MNT/sys/backup/kernel.img
+	_kargs="$(cat $FLASH_MNT/sys/backup/kernel.arg)"; _kargs="$(echo $_kargs|sed 's/console=[^ ]*[ ]*//')"
+        kexec -l -c "$_kargs ${CONSOLE:+$CONSOLE }flash=${FLASH_PART##*/} img=backup" -i "$(echo $FLASH_MNT/sys/backup/initrd.img)" $FLASH_MNT/sys/backup/kernel.img
 	err=$?
         # fake current boot as "backup(retry)"
         grub-mbr-default -q $FLASH_MBR 4
@@ -795,6 +801,7 @@ do_menu_boot_image() {
           #rm -rf $_dir
           #return 0
         #fi
+        clear
         do_inform "Booting image now..."
         kexec -e -x
         do_error "Boot failed"
@@ -955,11 +962,16 @@ init_flash_from_cmdline() {
   fi
 }
 
+init_console_from_cmdline() {
+  CONSOLE="$(cat /proc/cmdline|sed -ne 's/^\(.*\)\(console=[^ ]*\)\(.*\)/\2/p')"
+}
+
 ########### main ###########
 
 clear
 do_inform " --- Firmware utility version $FW_VER --- "
 
+init_console_from_cmdline
 init_flash_from_cmdline
 
 do_menu_main
