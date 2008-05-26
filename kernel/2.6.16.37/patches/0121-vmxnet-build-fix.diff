@@ -1,0 +1,377 @@
+diff -urN linux-2.6.16.37-vmxnet/drivers/net/Kconfig linux-2.6.16.37/drivers/net/Kconfig
+--- linux-2.6.16.37-vmxnet/drivers/net/Kconfig	2006-12-18 14:07:10 +0100
++++ linux-2.6.16.37/drivers/net/Kconfig	2008-05-26 14:50:06 +0200
+@@ -1874,6 +1874,17 @@
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called dl2k.
+ 
++config VMXNET
++	tristate "VMWare VMXNET native Ethernet driver support"
++	depends on PCI
++	---help---
++	  This driver supports VMWare native Ethernet adapters. It is
++	  the alternative to the slow PCNet32 emulation.
++
++	  To compile this driver as a module, choose M here and read
++	  <file:Documentation/networking/net-modules.txt>.  The module
++	  will be called vmxnet.
++
+ config E1000
+ 	tristate "Intel(R) PRO/1000 Gigabit Ethernet support"
+ 	depends on PCI
+diff -urN linux-2.6.16.37-vmxnet/drivers/net/Makefile linux-2.6.16.37/drivers/net/Makefile
+--- linux-2.6.16.37-vmxnet/drivers/net/Makefile	2006-12-18 14:07:10 +0100
++++ linux-2.6.16.37/drivers/net/Makefile	2008-05-26 14:47:30 +0200
+@@ -7,6 +7,7 @@
+ endif
+ 
+ obj-$(CONFIG_E1000) += e1000/
++obj-$(CONFIG_VMXNET) += vmxnet/
+ obj-$(CONFIG_IBM_EMAC) += ibm_emac/
+ obj-$(CONFIG_IXGB) += ixgb/
+ obj-$(CONFIG_CHELSIO_T1) += chelsio/
+diff -urN linux-2.6.16.37-vmxnet/drivers/net/vmxnet/Makefile linux-2.6.16.37/drivers/net/vmxnet/Makefile
+--- linux-2.6.16.37-vmxnet/drivers/net/vmxnet/Makefile	2008-05-17 03:19:58 +0200
++++ linux-2.6.16.37/drivers/net/vmxnet/Makefile	2008-05-26 14:55:12 +0200
+@@ -1,149 +1,2 @@
+-#!/usr/bin/make -f
+-##########################################################
+-# Copyright (C) 1998 VMware, Inc. All rights reserved.
+-#
+-# This program is free software; you can redistribute it and/or modify it
+-# under the terms of the GNU General Public License as published by the
+-# Free Software Foundation version 2 and no later version.
+-#
+-# This program is distributed in the hope that it will be useful, but
+-# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+-# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+-# for more details.
+-#
+-# You should have received a copy of the GNU General Public License along
+-# with this program; if not, write to the Free Software Foundation, Inc.,
+-# 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+-#
+-##########################################################
+-
+-####
+-####  VMware kernel module Makefile to be distributed externally
+-####
+-
+-####
+-#### SRCROOT _must_ be a relative path.
+-####
+-SRCROOT = .
+-
+-VM_UNAME = $(shell uname -r)
+-
+-# Header directory for the running kernel
+-HEADER_DIR = /lib/modules/$(VM_UNAME)/build/include
+-
+-BUILD_DIR = $(HEADER_DIR)/..
+-
+-DRIVER := vmxnet
+-PRODUCT := @PRODUCT@
+-
+-# Grep program
+-GREP = /bin/grep
+-
+-vm_check_gcc = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null \
+-        > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
+-vm_check_file = $(shell if test -f $(1); then echo "yes"; else echo "no"; fi)
+-
+-ifndef VM_KBUILD
+-VM_KBUILD := no
+-ifeq ($(call vm_check_file,$(BUILD_DIR)/Makefile), yes)
+-ifneq ($(call vm_check_file,$(BUILD_DIR)/Rules.make), yes)
+-VM_KBUILD := 26
+-endif
+-endif
+-export VM_KBUILD
+-endif
+-
+-ifndef VM_KBUILD_SHOWN
+-ifeq ($(VM_KBUILD), no)
+-VM_DUMMY := $(shell echo >&2 "Using standalone build system.")
+-else
+-ifeq ($(VM_KBUILD), 24)
+-VM_DUMMY := $(shell echo >&2 "Using 2.4.x kernel build system.")
+-else
+-VM_DUMMY := $(shell echo >&2 "Using 2.6.x kernel build system.")
+-endif
+-endif
+-VM_KBUILD_SHOWN := yes
+-export VM_KBUILD_SHOWN
+-endif
+-
+-ifneq ($(VM_KBUILD), no)
+-
+-VMCCVER := $(shell $(CC) -dumpversion)
+-
+-# If there is no version defined, we are in toplevel pass, not yet in kernel makefiles...
+-ifeq ($(VERSION),)
+-
+-ifeq ($(VM_KBUILD), 24)
+-DRIVER_KO := $(DRIVER).o
+-else
+-DRIVER_KO := $(DRIVER).ko
+-endif
+-
+-.PHONY: $(DRIVER_KO)
+-
+-auto-build: $(DRIVER_KO)
+-	cp -f $< $(SRCROOT)/../$(DRIVER).o
+-
+-# $(DRIVER_KO) is a phony target, so compare file times explicitly
+-$(DRIVER): $(DRIVER_KO)
+-	if [ $< -nt $@ ]; then cp -f $< $@; fi
+-
+-# Pass gcc version down the chain, so we can detect if kernel attempts to use unapproved compiler
+-VM_CCVER := $(VMCCVER)
+-export VM_CCVER
+-VM_CC := $(CC)
+-export VM_CC
+-
+-MAKEOVERRIDES := $(filter-out CC=%,$(MAKEOVERRIDES))
+-
+-$(DRIVER_KO):
+-	make -C $(BUILD_DIR) SUBDIRS=$$PWD SRCROOT=$$PWD/$(SRCROOT) modules
+-
+-else
+-
+-ifneq ($(VM_CCVER), $(VMCCVER))
+-$(warning *** Inappropriate build environment: you wanted to use gcc \
+- version $(VM_CCVER) while kernel attempts to use gcc version $(VMCCVER).)
+-$(error For proper build you'll have to replace $(CC) with symbolic \
+- link to $(VM_CC))
+-endif
+-
+-endif
+-
+-vm_check_build = $(shell if $(CC) $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) \
+-	$(CPPFLAGS) $(CFLAGS) $(CFLAGS_KERNEL) \
+-	$(EXTRA_CFLAGS) -Iinclude2/asm/mach-default \
+-	-DKBUILD_BASENAME=\"$(DRIVER)\" \
+-	-Werror -S -o /dev/null -xc $(1) \
+-	> /dev/null 2>&1; then echo "$(2)"; else echo "$(3)"; fi)
+-
+-CC_WARNINGS := -Wall -Wstrict-prototypes
+-CC_OPTS := $(GLOBAL_DEFS) $(CC_WARNINGS) -DVMW_USING_KBUILD
+-ifdef VMX86_DEVEL
+-CC_OPTS += -DVMX86_DEVEL
+-endif
+-ifdef VMX86_DEBUG
+-CC_OPTS += -DVMX86_DEBUG
+-endif
+-
+-include $(SRCROOT)/Makefile.kernel
+-
+-ifdef TOPDIR
+-ifeq ($(VM_KBUILD), 24)
+-
+-O_TARGET := $(DRIVER).o
+-
+-obj-y := $($(DRIVER)-y)
+-
+-include $(TOPDIR)/Rules.make
+-endif
+-endif
+-
+-else
+-
+-include $(SRCROOT)/Makefile.normal
+-
+-endif
+-
+-#.SILENT:
++obj-$(CONFIG_VMXNET) += vmxnet.o
++#vmxnet-objs := vmxnet.o
+diff -urN linux-2.6.16.37-vmxnet/drivers/net/vmxnet/Makefile.old linux-2.6.16.37/drivers/net/vmxnet/Makefile.old
+--- linux-2.6.16.37-vmxnet/drivers/net/vmxnet/Makefile.old	1970-01-01 01:00:00 +0100
++++ linux-2.6.16.37/drivers/net/vmxnet/Makefile.old	2008-05-17 03:19:58 +0200
+@@ -0,0 +1,149 @@
++#!/usr/bin/make -f
++##########################################################
++# Copyright (C) 1998 VMware, Inc. All rights reserved.
++#
++# This program is free software; you can redistribute it and/or modify it
++# under the terms of the GNU General Public License as published by the
++# Free Software Foundation version 2 and no later version.
++#
++# This program is distributed in the hope that it will be useful, but
++# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
++# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++# for more details.
++#
++# You should have received a copy of the GNU General Public License along
++# with this program; if not, write to the Free Software Foundation, Inc.,
++# 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
++#
++##########################################################
++
++####
++####  VMware kernel module Makefile to be distributed externally
++####
++
++####
++#### SRCROOT _must_ be a relative path.
++####
++SRCROOT = .
++
++VM_UNAME = $(shell uname -r)
++
++# Header directory for the running kernel
++HEADER_DIR = /lib/modules/$(VM_UNAME)/build/include
++
++BUILD_DIR = $(HEADER_DIR)/..
++
++DRIVER := vmxnet
++PRODUCT := @PRODUCT@
++
++# Grep program
++GREP = /bin/grep
++
++vm_check_gcc = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null \
++        > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
++vm_check_file = $(shell if test -f $(1); then echo "yes"; else echo "no"; fi)
++
++ifndef VM_KBUILD
++VM_KBUILD := no
++ifeq ($(call vm_check_file,$(BUILD_DIR)/Makefile), yes)
++ifneq ($(call vm_check_file,$(BUILD_DIR)/Rules.make), yes)
++VM_KBUILD := 26
++endif
++endif
++export VM_KBUILD
++endif
++
++ifndef VM_KBUILD_SHOWN
++ifeq ($(VM_KBUILD), no)
++VM_DUMMY := $(shell echo >&2 "Using standalone build system.")
++else
++ifeq ($(VM_KBUILD), 24)
++VM_DUMMY := $(shell echo >&2 "Using 2.4.x kernel build system.")
++else
++VM_DUMMY := $(shell echo >&2 "Using 2.6.x kernel build system.")
++endif
++endif
++VM_KBUILD_SHOWN := yes
++export VM_KBUILD_SHOWN
++endif
++
++ifneq ($(VM_KBUILD), no)
++
++VMCCVER := $(shell $(CC) -dumpversion)
++
++# If there is no version defined, we are in toplevel pass, not yet in kernel makefiles...
++ifeq ($(VERSION),)
++
++ifeq ($(VM_KBUILD), 24)
++DRIVER_KO := $(DRIVER).o
++else
++DRIVER_KO := $(DRIVER).ko
++endif
++
++.PHONY: $(DRIVER_KO)
++
++auto-build: $(DRIVER_KO)
++	cp -f $< $(SRCROOT)/../$(DRIVER).o
++
++# $(DRIVER_KO) is a phony target, so compare file times explicitly
++$(DRIVER): $(DRIVER_KO)
++	if [ $< -nt $@ ]; then cp -f $< $@; fi
++
++# Pass gcc version down the chain, so we can detect if kernel attempts to use unapproved compiler
++VM_CCVER := $(VMCCVER)
++export VM_CCVER
++VM_CC := $(CC)
++export VM_CC
++
++MAKEOVERRIDES := $(filter-out CC=%,$(MAKEOVERRIDES))
++
++$(DRIVER_KO):
++	make -C $(BUILD_DIR) SUBDIRS=$$PWD SRCROOT=$$PWD/$(SRCROOT) modules
++
++else
++
++ifneq ($(VM_CCVER), $(VMCCVER))
++$(warning *** Inappropriate build environment: you wanted to use gcc \
++ version $(VM_CCVER) while kernel attempts to use gcc version $(VMCCVER).)
++$(error For proper build you'll have to replace $(CC) with symbolic \
++ link to $(VM_CC))
++endif
++
++endif
++
++vm_check_build = $(shell if $(CC) $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) \
++	$(CPPFLAGS) $(CFLAGS) $(CFLAGS_KERNEL) \
++	$(EXTRA_CFLAGS) -Iinclude2/asm/mach-default \
++	-DKBUILD_BASENAME=\"$(DRIVER)\" \
++	-Werror -S -o /dev/null -xc $(1) \
++	> /dev/null 2>&1; then echo "$(2)"; else echo "$(3)"; fi)
++
++CC_WARNINGS := -Wall -Wstrict-prototypes
++CC_OPTS := $(GLOBAL_DEFS) $(CC_WARNINGS) -DVMW_USING_KBUILD
++ifdef VMX86_DEVEL
++CC_OPTS += -DVMX86_DEVEL
++endif
++ifdef VMX86_DEBUG
++CC_OPTS += -DVMX86_DEBUG
++endif
++
++include $(SRCROOT)/Makefile.kernel
++
++ifdef TOPDIR
++ifeq ($(VM_KBUILD), 24)
++
++O_TARGET := $(DRIVER).o
++
++obj-y := $($(DRIVER)-y)
++
++include $(TOPDIR)/Rules.make
++endif
++endif
++
++else
++
++include $(SRCROOT)/Makefile.normal
++
++endif
++
++#.SILENT:
+diff -urN linux-2.6.16.37-vmxnet/drivers/net/vmxnet/driver-config.h linux-2.6.16.37/drivers/net/vmxnet/driver-config.h
+--- linux-2.6.16.37-vmxnet/drivers/net/vmxnet/driver-config.h	2008-05-17 03:19:58 +0200
++++ linux-2.6.16.37/drivers/net/vmxnet/driver-config.h	2008-05-26 14:48:01 +0200
+@@ -36,13 +36,6 @@
+ #include "compat_version.h"
+ 
+ /*
+- * We rely on Kernel Module support.  Check here.
+- */
+-#ifndef CONFIG_MODULES
+-#   error "No Module support in this kernel.  Please configure with CONFIG_MODULES"
+-#endif
+-
+-/*
+  * 2.2 kernels still use __SMP__ (derived from CONFIG_SMP
+  * in the main Makefile), so we do it here.
+  */
+diff -urN linux-2.6.16.37-vmxnet/drivers/net/vmxnet/vmxnet.c linux-2.6.16.37/drivers/net/vmxnet/vmxnet.c
+--- linux-2.6.16.37-vmxnet/drivers/net/vmxnet/vmxnet.c	2008-05-17 03:19:58 +0200
++++ linux-2.6.16.37/drivers/net/vmxnet/vmxnet.c	2008-05-26 14:58:18 +0200
+@@ -89,14 +89,14 @@
+ static int vmxnet_probe_device(struct pci_dev *pdev, const struct pci_device_id *id);
+ static void vmxnet_remove_device(struct pci_dev *pdev);
+ 
+-#ifdef MODULE
++//#ifdef MODULE
+ static int debug = -1;
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 9)
+    module_param(debug, int, 0444);
+ #else
+    MODULE_PARM(debug, "i");
+ #endif
+-#endif
++//#endif
+ 
+ #ifdef VMXNET_DO_ZERO_COPY
+ #undef VMXNET_DO_ZERO_COPY
