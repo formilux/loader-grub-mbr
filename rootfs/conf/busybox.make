@@ -1,1 +1,1 @@
-make CC="uclibc gcc-3.4"
+make CC="uclibc i586-flx-linux-gcc"

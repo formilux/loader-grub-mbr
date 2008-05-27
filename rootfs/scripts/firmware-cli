@@ -7,7 +7,7 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
 # firmware version
-FW_VER=0.7
+FW_VER=1.0
 
 SERIAL_BAUD=115200
 DOWNLOAD_SAVE=N
@@ -801,7 +801,8 @@ do_menu_boot_image() {
           #rm -rf $_dir
           #return 0
         #fi
-        clear
+        # purge scroll buffer
+        (clear; chvt 2; chvt 1) 2>/dev/null
         do_inform "Booting image now..."
         kexec -e -x
         do_error "Boot failed"
@@ -968,7 +969,7 @@ init_console_from_cmdline() {
 
 ########### main ###########
 
-clear
+(clear; chvt 2; chvt 1) 2>/dev/null
 do_inform " --- Firmware utility version $FW_VER --- "
 
 init_console_from_cmdline
