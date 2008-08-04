@@ -1,0 +1,190 @@
+                FORMILUX FIRMWARE - FLASH LAYOUT SPECIFICATION
+                     rev 2.0 - 2008/08/04 - willy tarreau
+                             --- proposal ---
+
+
+1. Abstract
+-----------
+
+This document describes how the flash layout is supposed to be set up for a
+fully functional and evolutive Formilux firmware.
+
+2. History
+----------
+
+Version 1.0 of the flash layout defined 3 partitions :
+  - partition 1, with no mount point, contains the boot loader and the
+    maintenance kernel.
+
+  - partition 2, expected to be mounted under /flash, contains system
+    configuration, active and backup system images, and grub-mbr-default.
+
+  - partition 3, expected to be mounted under /nv, is an optional jffs2
+    file-system containing non-volatile, non-critical data.
+
+This layout has several drawbacks. First, the fact that grub-mbr-default is
+provided in partition 2 is inadequate because there is no upgrade process
+defined to replace it in case the boot loader would change. A copy of it is
+already present in partition 1 as a reference, this one should be used instead.
+
+Second, the boot-loader provides a "flash=<device>" boot parameter which is
+used by the system images to find partition 2. A problem arises when the device
+numbering depends on the system version. For instance, flash devices might be
+called /dev/hda under kernel 2.4 and /dev/sda under kernel 2.6. So the device
+naming has nothing to do in the boot-loader, because it is not 100%-specific to
+the hardware.
+
+An alternative might consist in naming the device absolutely (eg: disk number,
+controller number, bus number, etc...). But it is quite difficult to find those
+information back once booted.
+
+A third problem directly comes from the flash naming. Some scripts need to
+access partition 1, partition 2, or partition 3, other ones need the MBR. Some
+functions and heuristics are in use to find the correct device, but this
+non-trivial code needs to be replicated everywhere a flash device is needed.
+
+A fourth problem which is not directly related to the flash layout is the way
+the image updates are performed. Right now, an update will always replace the
+backup image with the active image, and install the new image as the active
+one. In case of a failure after an upgrade, the system will boot on the backup
+image. But next update will remove the backup image an leave only the failed
+active image and the new image. This upgrade represents a high risk of
+non-bootable system. The boot-loader already provides the information about
+the attempted image in the "img" boot variable, which contains the name of the
+directory where the image is fetched.
+
+So we have a boot-loader in production which is not easy to upgrade and
+which is not fully compatible with future image versions. We need to extend
+the specification so that new images are already compatible with the new
+specification, and that we can provide boot-loader upgrades later for images
+that are already up-to-date.
+
+3. Proposal
+-----------
+
+All users of a flash device will have to parse "/var/state/flash-layout.rc".
+This file will associate devices to symbolic names, one per line, with the
+same syntax as shell scripts so that it is easily sourceable (in the form
+VAR=val without spaces between them). Lines are ended with LF only. Empty
+lines are ignored, spaces before or after statements have to be ignored, and
+lines beginning with a sharp ('#') will be ignored. File is case-sensitive.
+Other combinations are undefined for now.
+
+Some variable names are already assigned :
+  - FLASH_MBR : device name by which the MBR may be accessed and/or updated.
+    It is not necessary that the whole device is reachable here, only the first
+    sectors are required to access GRUB signature.
+
+  - FLASH_HW  : device hosting the hardware-specific entries (namely the
+    boot-loader for now). It corresponds to the first partition in version 1.0.
+
+  - FLASH_SW  : device hosting the software images and configurations, which
+    are usually mounted in /flash. It corresponds to the second partition in
+    version 1.0.
+
+  - FLASH_NV  : device where the non-volatile data are stored. This one is
+    usually the third partition in version 1.0 and is generally mounted in
+    /nv.
+
+  - FLASH_RW  : device where a read-write root image is stored. In version
+    1.0, this sometimes happens for development or debugging purposes. The
+    image is then mounted as the rootfs. When it exists, it usually is the
+    fourth partition in version 1.0.
+
+No other names are currently defined. For private usage, use names starting
+with an underscore ('_'). It will have to be supported by tools and will
+never be emitted in a future version of the spec.
+
+Example :
+
+   # deduced from cmdline
+   FLASH_MBR=/dev/hda
+   FLASH_HW=/dev/hda1
+   FLASH_SW=/dev/hda2
+   FLASH_NV=/dev/hda3
+
+Users of those values will have to parse this file (eg: using "source" in
+Bourne shell). If the file does not exist (eg: in case of a ramfs), or looks
+corrupt, it will have to be rebuilt. A special tool has to be provided for
+this purpose : /sbin/mk-flash-layout. This tool currently takes no argument
+and will do its best to detect, among valid devices, the one the system is
+currently running from. As it may need to overwrite an existing file, so it
+will first create a temporary file called ".flash-layout.rc" close to the
+target one, and perform an atomic move at the last minute.
+
+This tool returns zero when it successfully fills the new file, or any non-zero
+error code in case of failure, including the lack of any flash device.
+
+A typical usage from a shell script running as root is :
+
+  [ -s /var/state/flash-layout.rc ] && source /var/state/flash-layout.rc ||
+    /sbin/mk-flash-layout && source /var/state/flash-layout.rc ||
+      die "no flash"
+
+For systems with persistent storage for /var, it would make sense to also
+perform this refresh when a device referenced in the file does not match
+(eg: upon a kernel change).
+
+The mk-flash-layout tool should walk through /proc/partitions and search for
+devices in the following order :
+  - /dev/hd*2
+  - /dev/c[0-9]*d[0-9]*p2
+  - /dev/sd*2
+
+For each of these devices, the MBR device name should be resolved and tested
+against a grub signature (using grub-mbr-default). If one device matches,
+then all of the existing entries listed above must be filled and the script
+should exit.
+
+If no grub image is found, then all devices should be mounted in turn (type
+ext2) until the correct one matches. A valid partition should have at least
+/cfg and /sys.
+
+Alternatively, if no MBR is found, the system might try to scan all devices
+from /proc/partitions matching the following names in the following order :
+  - /dev/hd*1
+  - /dev/c[0-9]*d[0-9]*p1
+  - /dev/sd*1
+  - /dev/md*1
+
+Each of those devices should be attempted to be mounted as ext2, and looked up
+for a file called "/cfg/flash.par". This file should contain relative
+references to the flash partition numbers like this :
+
+FLASH_HW 1
+FLASH_SW 2
+FLASH_NV 3
+FLASH_RW 3
+
+No equal sign, only one space between columns, no sharp allowed.
+mk-flash-layout will then have to strip the partition number from the currently
+mounted partition, and derive the variables from the concatenation of the
+remaining name and values in this file. For instance, let's assume that
+/dev/hdc1 was mounted and that flash.par exists there in /cfg with the values
+above. The MBR will then be /dev/hdc and all partitions enumerated in the file
+will have their value filled accordingly in /var/state/flash-layout.rc.
+
+The basic rule between scripts is that *any* script is reponsible for creating
+and/or refreshing /var/state/flash-layout.rc when needed. In practice, only
+restore-etc might need it very early though.
+
+
+Partition layout for FLASH_HW :
+
+In the first partition, we MUST now find :
+  - bin/grub-mbr-default
+  - bin/validate-boot
+  - grub/...
+  - sys/maint.img
+  - keys/
+  - serial/
+
+We MAY also find :
+  - cfg/flash.par
+  - cfg/lan*  (MAC addresses, PCI IDs, ...)
+  - keys/<feature>.*     : keys for protected feature <feature>
+  - serial/host.txt      : host serial number (for a VM image)
+  - serial/flash.txt     : flash serial number
+  - serial/mainboard.txt : mainboard serial number
+
+--- to be continued ---
