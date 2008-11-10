@@ -154,6 +154,22 @@ mount_flash() {
     return 1
 }
 
+# This function mounts $FLASH_HW into $FLASH_DIR, then checks that it looks like
+# what is expected and unmounts it. It returns 0 if OK, otherwise non-zero. It
+# assumes that $FLASH_DIR is not mounted.
+mount_part_hw() {
+    ( cd / ; $MOUNT -r "/dev/$FLASH_HW" "$FLASH_DIR" ) >/dev/null 2>&1
+    [ $? -gt 0 ] && return 1
+    if [ -s "$FLASH_DIR/boot/firmware/firmware.img" ]; then
+        umount_flash
+        return 0
+    else
+        umount_flash
+        return 1
+    fi
+}
+
+
 # This function dumps the known variables into the layout file.
 dump_layout() {
     rm -f $LAYOUT_DIR/$LAYOUT_TMP
@@ -179,15 +195,22 @@ try_mount_from_mbr() {
     get_next_part $FLASH_MBR $FLASH_HW || return 1
     FLASH_SW=$REPLY
     get_part_size $FLASH_SW || return 1
-    [ $REPLY -ge 1024 ] || return 1
+    [ $REPLY -ge 8192 ] || return 1
 
     # now try to mount $FLASH_SW
     mount_flash && return 0
 
-    # The flash could not be mounted. If we're in the boot loader,
-    # it is possible that it has not been formated. The only
-    # solution is then to fall back to the HW partition. For now,
-    # we will onlt try to mount another partition.
+    # The flash was OK but could not be mounted. If we're in the boot loader,
+    # it is possible that it has not been formated. The only solution is then
+    # to fall back to the HW partition. If it is valid, we note this setup as
+    # eligible for a final configuration.
+    if [ -z "$FALLBACK_MBR" ]; then
+        if mount_part_hw; then
+            FALLBACK_MBR=$FLASH_MBR
+            FALLBACK_HW=$FLASH_HW
+            FALLBACK_SW=$FLASH_SW
+        fi
+    fi
     return 1
 }
 
@@ -210,7 +233,7 @@ try_mount_from_part() {
         get_part_size $FLASH_HW || return 1
         [ $REPLY -ge 1024 ] || return 1
         get_part_size $FLASH_SW || return 1
-        [ $REPLY -ge 1024 ] || return 1
+        [ $REPLY -ge 8192 ] || return 1
 
         # now try to mount $FLASH_SW
         if mount_flash; then
@@ -218,15 +241,23 @@ try_mount_from_part() {
             return 0
         fi
 
-        # The flash could not be mounted. If we're in the boot loader, it is
-        # possible that it has not been formated. The only solution is then to
-        # fall back to the HW partition. For now, we will only try to mount
-        # another partition.
+        # The flash was OK but could not be mounted. If we're in the boot
+        # loader, it is possible that it has not been formated. The only
+        # solution is then to fall back to the HW partition. If it is valid, we
+        # note this setup as eligible for a final configuration.
+        if [ -z "$FALLBACK_MBR" ]; then
+            if mount_part_hw; then
+                FALLBACK_MBR=$FLASH_MBR
+                FALLBACK_HW=$FLASH_HW
+                FALLBACK_SW=$FLASH_SW
+            fi
+        fi
     else
         # if 'flash' does not designate the right partition, let's retry with
         # another partition of the same MBR.
         FLASH_TYPE=MBR
     fi
+    return 1
 }
 
 ####### MAIN #####
@@ -369,5 +400,18 @@ for mbr in $MBR_OTH; do
     fi
 done
 
-echo "Failed to mount $FLASH_DIR from [ $ATTEMPTED_PART $ATTEMPTED_MBR $ATTEMPTED_OTH ]"
+# The partition was not found, maybe because it is not formatted.
+# If we're sure we have found the correct partition combination, then we
+# note it into the layout file, and return error code 2.
+if [ -n "$FALLBACK_MBR" ]; then
+    FLASH_MBR=$FALLBACK_MBR
+    FLASH_HW=$FALLBACK_HW
+    FLASH_SW=$FALLBACK_SW
+
+    dump_layout
+    [ -z "$QUIET" ] && echo "Found unformatted flash on ${FLASH_SW}"
+    exit 2
+fi
+
+[ -z "$QUIET" ] && echo "Failed to mount $FLASH_DIR from [ $ATTEMPTED_PART $ATTEMPTED_MBR $ATTEMPTED_OTH ]"
 exit 1
