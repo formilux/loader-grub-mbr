@@ -173,9 +173,9 @@ mount_part_hw() {
 # This function dumps the known variables into the layout file.
 dump_layout() {
     rm -f $LAYOUT_DIR/$LAYOUT_TMP
-    (   echo "FLASH_MBR=$FLASH_MBR"
-        echo "FLASH_HW=$FLASH_HW"
-        echo "FLASH_SW=$FLASH_SW"
+    (   echo "FLASH_MBR=/dev/$FLASH_MBR"
+        echo "FLASH_HW=/dev/$FLASH_HW"
+        echo "FLASH_SW=/dev/$FLASH_SW"
     ) > $LAYOUT_DIR/$LAYOUT_TMP
     mv $LAYOUT_DIR/$LAYOUT_TMP $LAYOUT_DIR/$LAYOUT_RC
 }
