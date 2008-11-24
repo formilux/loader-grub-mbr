@@ -140,14 +140,14 @@ get_part_size() {
 
 # This function silently unmounts $FLASH_DIR
 umount_flash() {
-    $UMOUNT -d "$FLASH_DIR" >/dev/null 2>&1
+    $UMOUNT -nd "$FLASH_DIR" >/dev/null 2>&1
 }
 
 # This function mounts $FLASH_SW into $FLASH_DIR, then checks that it looks like
 # what is expected. It returns 0 if OK, otherwise non-zero. It assumes that
 # $FLASH_DIR is not mounted.
 mount_flash() {
-    ( cd / ; $MOUNT -r "/dev/$FLASH_SW" "$FLASH_DIR" ) >/dev/null 2>&1
+    ( cd / ; $MOUNT -nr "/dev/$FLASH_SW" "$FLASH_DIR" ) >/dev/null 2>&1
     [ $? -gt 0 ] && return 1
     [ -d "$FLASH_DIR/sys/." -a -d "$FLASH_DIR/cfg/." ] && return 0
     umount_flash
@@ -158,7 +158,7 @@ mount_flash() {
 # what is expected and unmounts it. It returns 0 if OK, otherwise non-zero. It
 # assumes that $FLASH_DIR is not mounted.
 mount_part_hw() {
-    ( cd / ; $MOUNT -r "/dev/$FLASH_HW" "$FLASH_DIR" ) >/dev/null 2>&1
+    ( cd / ; $MOUNT -nr "/dev/$FLASH_HW" "$FLASH_DIR" ) >/dev/null 2>&1
     [ $? -gt 0 ] && return 1
     if [ -s "$FLASH_DIR/boot/firmware/firmware.img" ]; then
         umount_flash
@@ -172,12 +172,16 @@ mount_part_hw() {
 
 # This function dumps the known variables into the layout file.
 dump_layout() {
-    rm -f $LAYOUT_DIR/$LAYOUT_TMP
+    if [ ! -d "$LAYOUT_DIR/." ]; then
+	rm -f "$LAYOUT_DIR" >/dev/null
+	mkdir -p "$LAYOUT_DIR" || return 1
+    fi
+    rm -f "$LAYOUT_DIR/$LAYOUT_TMP"
     (   echo "FLASH_MBR=/dev/$FLASH_MBR"
         echo "FLASH_HW=/dev/$FLASH_HW"
         echo "FLASH_SW=/dev/$FLASH_SW"
-    ) > $LAYOUT_DIR/$LAYOUT_TMP
-    mv $LAYOUT_DIR/$LAYOUT_TMP $LAYOUT_DIR/$LAYOUT_RC
+    ) > "$LAYOUT_DIR/$LAYOUT_TMP"
+    mv "$LAYOUT_DIR/$LAYOUT_TMP" "$LAYOUT_DIR/$LAYOUT_RC"
 }
 
 # Try to find partitions on an $FLASH_MBR and mount $FLASH_DIR. The function
@@ -260,6 +264,13 @@ try_mount_from_part() {
     return 1
 }
 
+# usage: $0 [$arg]
+usage() {
+    [ -n "$1" ] && echo "Unknown argument: $1" >&2
+    echo "Usage: ${0##*/} [-qvk] [-d state_dir] [-f flash_dir] [-h hw_dir]" >&2
+    exit 1
+}
+
 ####### MAIN #####
 
 while [ $# -gt 0 ]; do
@@ -268,18 +279,19 @@ while [ $# -gt 0 ]; do
     elif [ "$1" = "-v" ]; then VERBOSE=1
     elif [ "$1" = "-k" ]; then KEEP_MOUNTED=1
     elif [ "$1" = "-d" ]; then
+	[ $# -ge 2 ] || usage
         LAYOUT_DIR="$2"
         shift
     elif [ "$1" = "-f" ]; then
+	[ $# -ge 2 ] || usage
         FLASH_DIR="$2"
         shift
     elif [ "$1" = "-h" ]; then
+	[ $# -ge 2 ] || usage
         HARDW_DIR="$2"
         shift
     else
-        echo "Unknown argument: $1" >&2
-        echo "Usage: ${0##*/} [-qvk] [-d state_dir] [-f flash_dir] [-h hw_dir]" >&2
-        exit 1
+	usage "$1"
     fi
     shift
 done
