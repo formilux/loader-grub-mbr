@@ -1,6 +1,6 @@
 #!/bin/sh
 
-## update-boot-image 20070102
+## update-boot-image 20081124
 ## Usage :
 ##   $ update-boot-image [-k] [-h] [-n] [-q] [-f] [-v] [-m mntdir] [-d device]
 ##                       [-b mbrlist] $DIR/image.tgz
@@ -27,6 +27,8 @@
 #
 # This script needs : tr, grep, cut, mount, umount, grub-mbr-default in its
 #                     PATH, /proc mounted, and flash unmounted.
+# This script may use : /sbin/mk-flash-layout and /var/state/flash-layout.rc
+#
 # WARNING! This script needs to be able to run under busybox, so please limit
 # the fantasy !
 
@@ -46,6 +48,7 @@ MODEL=
 MBRLIST=
 
 while [ $# -gt 0 ]; do
+  [ ".$1" = ".-" ] && break
   [ -z "${1##-*}" ] || break
   if [ ".$1" = ".-f" ]; then FORCE=1
   elif [ ".$1" = ".-n" ]; then DRYRUN=1
@@ -104,6 +107,42 @@ do_exit_error() {
   exit ${err:-1}
 }
 
+# return the detected flash in $FLASH
+find_flash() {
+  local flash
+
+  unset FLASH_MBR FLASH_HW FLASH_SW
+
+  if [ -s /var/state/flash-layout.rc ]; then
+    . /var/state/flash-layout.rc
+  fi
+
+  if [ -z "$FLASH_SW" ]; then
+    if [ -x /sbin/mk-flash-layout ]; then
+      /sbin/mk-flash-layout ${MOUNTED_RO:+-k} ${QUIET:+-q}
+      if [ -s /var/state/flash-layout.rc ]; then
+        . /var/state/flash-layout.rc
+      fi
+    fi
+  fi
+
+  if [ -z "$FLASH_SW" ]; then
+    flash="$(cat /proc/cmdline)"
+    if [ -n "${flash##*flash=*}" ]; then
+      [ -z "$QUIET" ] && echo "No flash device specified in /proc/cmdline."
+      return 1
+    fi
+    flash=${flash##*flash=}
+    flash=${flash%% *}
+    [ -n "${flash##/dev/*}" ] && flash="/dev/$flash"
+  else
+    flash=$FLASH_SW
+  fi
+
+  FLASH=$flash
+  return 0
+}
+
 while [ $seq -lt 1000 ] && ! mkdir "$TEMP" >/dev/null 2>&1; do
   seq=$(($seq+1))
   TEMP="/tmp/temp-$$_$seq"
@@ -124,12 +163,15 @@ else
   fi
 fi
 
-if [ ! -r "$FILE" ]; then
-  [ -z "$QUIET" ] && echo "Image unreadable."
-  do_exit_error 1
+if [ "$FILE" != "-" ] ; then
+ if [ ! -r "$FILE" ]; then
+   [ -z "$QUIET" ] && echo "Image unreadable."
+   do_exit_error 1
+ fi
+ (cd $TEMP 2>/dev/null && tar zxf - >/dev/null 2>&1) < $FILE
+else
+ cat | (cd $TEMP 2>/dev/null && tar zxf - >/dev/null 2>&1)
 fi
-
-(cd $TEMP 2>/dev/null && tar zxf - >/dev/null 2>&1) < $FILE
 # we don't check the return code because gzip can return false errors
 # because of additionnal bytes resulting from various upload methods.
 # The md5 is the only valid test.
@@ -165,14 +207,9 @@ fi
 [ "$DRYRUN" = 1 ] && do_exit_ok
 
 if [ -z "$FLASH" ]; then
-  flash="$(cat /proc/cmdline)"
-  if [ -n "${flash##*flash=*}" ]; then
-    [ -z "$QUIET" ] && echo "Unknown flash device."
+  if ! find_flash; then
     do_exit_error 3
   fi
-  flash=${flash##*flash=}
-  flash=${flash%% *}
-  FLASH="$flash"
 fi
 [ -n "${FLASH##/dev/*}" ] && FLASH="/dev/$FLASH"
 
@@ -185,7 +222,7 @@ if [ -n "$MOUNTED_RO" ]; then
 fi
 
 if [ -n "$MOUNTED" ] && ! mount -wo remount $FLASHDIR >/dev/null 2>&1 || \
-  ! mount -n $FLASH $FLASHDIR >/dev/null 2>&1; then
+   [ -z "$MOUNTED" ] && ! mount -n $FLASH $FLASHDIR >/dev/null 2>&1; then
   [ -z "$QUIET" ] && echo "Cannot mount flash."
   do_exit_error 3
 else
@@ -262,6 +299,11 @@ if ( [ -n "$MOUNTED_RO" ] && mount -ro remount $FLASHDIR || umount $FLASHDIR ) >
 fi
 
 if [ -z "$MBRLIST" ]; then
+  if [ -s /var/state/flash-layout.rc ]; then
+    . /var/state/flash-layout.rc
+  fi
+  [ -n "$FLASH_MBR" ] && MBRLIST="${FLASH_MBR##/dev/}"
+
   mbr="$(cat /proc/cmdline)"
   if [ -z "${mbr##*mbr=*}" ]; then
     # mbr specified in /proc/cmdline. It may be a comma-separated list.
@@ -270,6 +312,7 @@ if [ -z "$MBRLIST" ]; then
     for mbrdev in $mbr; do
       mbrdev=${mbrdev##/dev/}
       [ -n "$mbrdev" ] || continue
+      [ "/dev/$mbrdev" != "$FLASH_MBR" ] || continue
       MBRLIST="$MBRLIST $mbrdev"
     done
   fi
