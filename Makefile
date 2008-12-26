@@ -2,7 +2,7 @@
 V =
 NOCLEAN =
 
-FWVER         = 1.0
+FWVER         = 2.0
 BASE_KVER     = 2.6.16
 KVER          = 2.6.16.37
 GRUBVER       = 0.96
@@ -137,12 +137,12 @@ $(INITRAMFS): $(BUILD_DIR)/rootfs.installed
 	@echo "Creating initramfs archive..."
 	$(Q) mkdir -p $(FINAL_DIR)
 	$(Q) for f in .preinit init dev bin/{,busybox,kexec,serial-load} \
-	  bin/{update-boot-image,firmware-cli,grub-mbr-default}; do \
+	  bin/{mk-flash-layout,update-boot-image,firmware-cli,grub-mbr-default}; do \
 	    echo $$f; \
 	done | \
 	  (cd $(BUILD_DIR)/rootfs; $(cmd_sudo) $(cmd_cpio) -o -H newc) > $@
 
-$(BUILD_DIR)/rootfs.installed: rootfs/scripts/preinit rootfs/prebuilt/init rootfs/prebuilt/busybox rootfs/prebuilt/grub-mbr-default rootfs/prebuilt/kexec-1.101.upx rootfs/scripts/firmware-cli  rootfs/scripts/serial-load rootfs/scripts/update-boot-image
+$(BUILD_DIR)/rootfs.installed: rootfs/scripts/preinit rootfs/prebuilt/init rootfs/prebuilt/busybox rootfs/prebuilt/grub-mbr-default rootfs/prebuilt/kexec-1.101.upx rootfs/scripts/mk-flash-layout rootfs/scripts/firmware-cli rootfs/scripts/serial-load rootfs/scripts/update-boot-image
 	@echo "Installing initramfs files..."
 	$(Q) mkdir -p $(BUILD_DIR)/rootfs
 	$(Q) $(cmd_sudo) $(cmd_install) -d -o root -g root -m 755 \
@@ -156,7 +156,7 @@ $(BUILD_DIR)/rootfs.installed: rootfs/scripts/preinit rootfs/prebuilt/init rootf
 	$(Q) $(cmd_sudo) $(cmd_install)    -o root -g root -m 500 \
 	     rootfs/prebuilt/kexec-1.101.upx $(BUILD_DIR)/rootfs/bin/kexec
 	$(Q) $(cmd_sudo) $(cmd_install)    -o root -g root -m 500 \
-	     rootfs/scripts/{firmware-cli,serial-load,update-boot-image} $(BUILD_DIR)/rootfs/bin/
+	     rootfs/scripts/{mk-flash-layout,firmware-cli,serial-load,update-boot-image} $(BUILD_DIR)/rootfs/bin/
 	$(Q) touch $@
 
 #### kernel
@@ -324,7 +324,7 @@ $(patsubst %,$(INSTRAMFS_PFX)-%.cpio,$(PLATFORMS)): \
 	@echo "Creating initramfs archive..."
 	$(Q) mkdir -p $(FINAL_DIR)
 	$(Q) for f in .preinit init dev bin/{,busybox,kexec,serial-load} \
-	  bin/{update-boot-image,firmware-cli,grub-mbr-default} \
+	  bin/{mk-flash-layout,update-boot-image,firmware-cli,grub-mbr-default} \
 	  $$(cd $(INSTRAMFS_DIR)/$(^F) && echo images images/*); do \
 	    echo $$f; \
 	done | \
