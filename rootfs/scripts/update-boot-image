@@ -271,7 +271,7 @@ if [ -z "$IMG_INSTALL" ]; then
 	# replace the active image if current version is the same as the backup
 	# or if we're re-installing the same version as the active image.
 	# Otherwise we replace the backup image.
-	cur_ver="$(readlink /usr/share/factory/version)"
+	cur_ver="$(readlink /usr/share/factory/version 2>/dev/null)"
 	if [ ! -s "$FLASHDIR/sys/active/system.ver" ]; then
 	    IMG_KEEP="backup"
 	    IMG_INSTALL="active"
