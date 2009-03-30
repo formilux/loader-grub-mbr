@@ -33,7 +33,7 @@ title Image 2
 # image 2
 title Maintenance Kernel
    root (hd0,0)
-   kernel /boot/firmware/firmware.img quiet console=tty0 panic=1 img=maint
+   kernel /boot/firmware/firmware.img quiet console=tty0 panic=1 img=maint acpi=noirq
 
 # image 3
 title Reboot
