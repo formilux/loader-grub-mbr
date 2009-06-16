@@ -1,0 +1,12 @@
+diff -urN linux-2.6.16.37/drivers/net/Makefile linux-2.6.16.37-tg3/drivers/net/Makefile
+--- linux-2.6.16.37/drivers/net/Makefile	2006-12-18 14:07:10 +0100
++++ linux-2.6.16.37-tg3/drivers/net/Makefile	2009-06-16 15:07:53 +0200
+@@ -56,7 +56,7 @@
+ obj-$(CONFIG_NS83820) += ns83820.o
+ obj-$(CONFIG_STNIC) += stnic.o 8390.o
+ obj-$(CONFIG_FEALNX) += fealnx.o
+-obj-$(CONFIG_TIGON3) += tg3.o
++obj-$(CONFIG_TIGON3) += tg3/
+ obj-$(CONFIG_BNX2) += bnx2.o
+ spidernet-y += spider_net.o spider_net_ethtool.o sungem_phy.o
+ obj-$(CONFIG_SPIDER_NET) += spidernet.o
