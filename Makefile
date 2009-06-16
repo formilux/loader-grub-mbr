@@ -181,7 +181,8 @@ $(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
 	$(Q) mkdir -p $(KDIR)/configs $(KDIR)/output
 	$(Q) mkdir -p $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,%,$@)
 	$(Q) cp $< $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,%/.config,$@)
-	@(cd $(KDIR); unset KBUILD_OUTPUT; $(cmd_make) mrproper;              \
+	$(Q) ( \
+          cd $(KDIR); unset KBUILD_OUTPUT; $(cmd_make) mrproper;              \
 	  export KBUILD_OUTPUT=$(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,%,$@);      \
 	  if [ -z "$(NOCLEAN)" ]; then \
 	    echo "  - cleaning everything and updating config...";              \
@@ -201,7 +202,8 @@ $(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
 	    tail -10 $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,build-%.log,$@);      \
 	    echo " ------ ";                                                  \
 	    exit 1;                                                           \
-	  fi)
+	  fi \
+        )
 	@echo "  -> done."
 
 $(KDIR)/prebuilt/.data-kernel: $(KDIR)/.patched
