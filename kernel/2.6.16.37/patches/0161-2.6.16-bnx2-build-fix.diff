@@ -1,0 +1,71 @@
+--- ./drivers/net/bnx2/bnx2.h	2009-06-16 16:22:16 +0200
++++ ./drivers/net/bnx2/bnx2.h.new	2009-06-16 16:21:57 +0200
+@@ -13,16 +13,16 @@
+ #ifndef BNX2_H
+ #define BNX2_H
+ 
+-#if (LINUX_VERSION_CODE >= 0x020610)
+-#define BCM_CNIC 1
+-#endif
++//#if (LINUX_VERSION_CODE >= 0x020610)
++//#define BCM_CNIC 1
++//#endif
+ 
+-#if defined(__VMKLNX__)
++//#if defined(__VMKLNX__)
+ #define HAVE_LE32	1
+-#define HAVE_IP_HDR	1
+-#define NEW_SKB		1
+-#define BNX2_NEW_NAPI	1
+-#endif
++//#define HAVE_IP_HDR	1
++//#define NEW_SKB		1
++//#define BNX2_NEW_NAPI	1
++//#endif
+ 
+ #ifndef ADVERTISE_1000XFULL
+ #define ADVERTISE_1000XFULL	0x0020
+@@ -7115,8 +7115,10 @@
+ 	int		tx_ring_size;
+ 	u32		tx_wake_thresh;
+ 
++#ifdef BCM_CNIC
+ 	struct cnic_ops		*cnic_ops;
+ 	void			*cnic_data;
++#endif
+ 
+ 	/* End of fields used in the performance code paths. */
+ 
+@@ -7286,8 +7288,10 @@
+ 	u8			num_tx_rings;
+ 	u8			num_rx_rings;
+ 
++#ifdef BCM_CNIC
+ 	spinlock_t		cnic_lock;
+ 	struct cnic_eth_dev	cnic_eth_dev;
++#endif
+ };
+ 
+ #define REG_RD(bp, offset)					\
+--- ./drivers/net/bnx2/bnx2.c	2009-06-16 16:22:16 +0200
++++ ./drivers/net/bnx2/bnx2.c.new	2009-06-16 16:22:06 +0200
+@@ -74,7 +74,9 @@
+ #include <linux/log2.h>
+ #endif
+ 
++#ifdef BCM_CNIC
+ #include "cnic_drv.h"
++#endif
+ #include "bnx2.h"
+ #include "bnx2_fw.h"
+ #include "bnx2_fw2.h"
+@@ -8058,7 +8060,9 @@
+ 
+ 	spin_lock_init(&bp->phy_lock);
+ 	spin_lock_init(&bp->indirect_lock);
++#ifdef BCM_CNIC
+ 	spin_lock_init(&bp->cnic_lock);
++#endif
+ #if (LINUX_VERSION_CODE >= 0x20600)
+ #if defined(INIT_DELAYED_WORK_DEFERRABLE) || defined(INIT_WORK_NAR)
+ 	INIT_WORK(&bp->reset_task, bnx2_reset_task);

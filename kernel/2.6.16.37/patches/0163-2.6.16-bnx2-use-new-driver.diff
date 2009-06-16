@@ -1,0 +1,21 @@
+--- ./drivers/net/Kconfig.orig	2009-06-16 15:35:43 +0200
++++ ./drivers/net/Kconfig	2009-06-16 15:36:00 +0200
+@@ -2178,6 +2178,7 @@
+ config BNX2
+ 	tristate "Broadcom NetXtremeII support"
+ 	depends on PCI
++	select ZLIB_INFLATE
+ 	help
+ 	  This driver supports Broadcom NetXtremeII gigabit Ethernet cards.
+ 
+--- ./drivers/net/Makefile.orig	2009-06-16 15:27:47 +0200
++++ ./drivers/net/Makefile	2009-06-16 15:27:55 +0200
+@@ -58,7 +58,7 @@
+ obj-$(CONFIG_STNIC) += stnic.o 8390.o
+ obj-$(CONFIG_FEALNX) += fealnx.o
+ obj-$(CONFIG_TIGON3) += tg3/
+-obj-$(CONFIG_BNX2) += bnx2.o
++obj-$(CONFIG_BNX2) += bnx2/
+ spidernet-y += spider_net.o spider_net_ethtool.o sungem_phy.o
+ obj-$(CONFIG_SPIDER_NET) += spidernet.o
+ obj-$(CONFIG_TC35815) += tc35815.o

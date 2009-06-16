@@ -1,0 +1,5 @@
+--- /dev/null	1994-07-18 01:46:18 +0200
++++ ./drivers/net/bnx2/Makefile	2009-06-16 15:24:34 +0200
+@@ -0,0 +1,2 @@
++obj-$(CONFIG_BNX2) += bnx2.o
++
