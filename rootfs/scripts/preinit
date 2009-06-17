@@ -41,14 +41,11 @@ ch 0600 0 5 4 1 tty[i,1-12,1]
 bl 0600 0 0 7 0 loop[i,0-9,1]
 bl 0600 0 0 1 0 ram[i,0-9,1]
 ch 0600 0 5 4 64 ttyS[i,0-9,1]
-ch 0600 0 0 108 0 ppp
 ch 0600 0 3 10 1 psaux
 ch 0600 0 0 10 144 nvram
 ch 0600 0 0 10 130 watchdog
-ch 0600 0 0 10 135 rtc
 ch 0600 0 0 10 156 lcd
 ch 0600 0 0 10 185 keypad
-ch 0600 0 0 10 186 smartcard
 bl 0400 0 0 1 250 initrd
 ch 0600 0 0 14 0 mixer
 ch 0600 0 0 14 3 dsp
@@ -62,12 +59,8 @@ md /dev/net 755
 ch 0600 0 0 10 200 /dev/net/tun
 
 ec "Loading Firmware..."
-
-#wk "Press ENTER within 1 seconds to cancel boot and enter command line mode..." 1
-te INITSHELL=1
-&rd "Boot Cancelled."
-
-# needed for Xmodem transfers
+# tty->ttyS0 needed for Xmodem transfers. Keep a copy.
+ch 0666 0 5 5 0 tty.bak
 rm /dev/tty
 ln ttyS0 /dev/tty
 md /flash 755
@@ -75,10 +68,14 @@ md /flash 755
 ec "Extracting busybox..."
 /bin/busybox --install -s
 
+#wk "Press ENTER within 1 seconds to cancel boot and enter command line mode..." 1
+te INITSHELL=1
+&rd "Boot Cancelled."
+
 # start it if it exists
 ec "Starting firmware CLI."
 /bin/firmware-cli
 
-ec "Starting /bin/sh"
-in /bin/sh
+ec "Falling back to /bin/sh as PID 1. No TTY, Ctrl-C unusable."
+br /bin/sh
 
