@@ -19,7 +19,7 @@ INSTRAMFS_PFX := $(FINAL_DIR)/instramfs_data
 
 KDIR          := $(BUILD_DIR)/kernel/linux-$(KVER)
 
-TEMP_FILES    := $(KDIR)/output $(KDIR)/prebuilt/initramfs_data.cpio
+TEMP_FILES    := $(KDIR)/output $(KDIR)/prebuilt/initramfs_data.cpio $(KDIR)/prebuilt/.data-kernel
 PERM_FILES    := $(INITRAMFS)
 
 # Use the configuration suffixes to determine the list of platforms
