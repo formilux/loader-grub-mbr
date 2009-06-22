@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.16.37
-# Wed Mar 18 00:53:32 2009
+# Mon May 26 14:51:57 2008
 #
 CONFIG_X86_32=y
 CONFIG_SEMAPHORE_SLEEPERS=y
@@ -22,7 +22,7 @@ CONFIG_INIT_ENV_ARG_LIMIT=32
 #
 # General setup
 #
-CONFIG_LOCALVERSION="-nsa1042"
+CONFIG_LOCALVERSION="-vmware"
 # CONFIG_LOCALVERSION_AUTO is not set
 # CONFIG_SWAP is not set
 # CONFIG_SYSVIPC is not set
@@ -91,12 +91,12 @@ CONFIG_X86_PC=y
 # CONFIG_X86_VISWS is not set
 # CONFIG_X86_GENERICARCH is not set
 # CONFIG_X86_ES7000 is not set
-CONFIG_M386=y
+# CONFIG_M386 is not set
 # CONFIG_M486 is not set
 # CONFIG_M586 is not set
 # CONFIG_M586TSC is not set
 # CONFIG_M586MMX is not set
-# CONFIG_M686 is not set
+CONFIG_M686=y
 # CONFIG_MPENTIUMII is not set
 # CONFIG_MPENTIUMIII is not set
 # CONFIG_MPENTIUMM is not set
@@ -114,11 +114,20 @@ CONFIG_M386=y
 # CONFIG_MCYRIXIII is not set
 # CONFIG_MVIAC3_2 is not set
 # CONFIG_X86_GENERIC is not set
-CONFIG_X86_L1_CACHE_SHIFT=4
-CONFIG_RWSEM_GENERIC_SPINLOCK=y
+CONFIG_X86_CMPXCHG=y
+CONFIG_X86_XADD=y
+CONFIG_X86_L1_CACHE_SHIFT=5
+CONFIG_RWSEM_XCHGADD_ALGORITHM=y
 CONFIG_GENERIC_CALIBRATE_DELAY=y
 CONFIG_X86_PPRO_FENCE=y
-CONFIG_X86_F00F_BUG=y
+CONFIG_X86_WP_WORKS_OK=y
+CONFIG_X86_INVLPG=y
+CONFIG_X86_BSWAP=y
+CONFIG_X86_POPAD_OK=y
+CONFIG_X86_CMPXCHG64=y
+CONFIG_X86_GOOD_APIC=y
+CONFIG_X86_USE_PPRO_CHECKSUM=y
+CONFIG_X86_TSC=y
 # CONFIG_HPET_TIMER is not set
 # CONFIG_SMP is not set
 CONFIG_PREEMPT_NONE=y
@@ -160,7 +169,6 @@ CONFIG_SPARSEMEM_STATIC=y
 CONFIG_SPLIT_PTLOCK_CPUS=4
 # CONFIG_MATH_EMULATION is not set
 # CONFIG_MTRR is not set
-# CONFIG_EFI is not set
 CONFIG_REGPARM=y
 # CONFIG_SECCOMP is not set
 # CONFIG_HZ_100 is not set
@@ -174,38 +182,12 @@ CONFIG_PHYSICAL_START=0x100000
 #
 # Power management options (ACPI, APM)
 #
-CONFIG_PM=y
-# CONFIG_PM_LEGACY is not set
-# CONFIG_PM_DEBUG is not set
+# CONFIG_PM is not set
 
 #
 # ACPI (Advanced Configuration and Power Interface) Support
 #
-CONFIG_ACPI=y
-# CONFIG_ACPI_SLEEP is not set
-# CONFIG_ACPI_AC is not set
-# CONFIG_ACPI_BATTERY is not set
-# CONFIG_ACPI_BUTTON is not set
-# CONFIG_ACPI_VIDEO is not set
-# CONFIG_ACPI_HOTKEY is not set
-# CONFIG_ACPI_FAN is not set
-# CONFIG_ACPI_PROCESSOR is not set
-# CONFIG_ACPI_ASUS is not set
-# CONFIG_ACPI_IBM is not set
-# CONFIG_ACPI_TOSHIBA is not set
-# CONFIG_ACPI_CUSTOM_DSDT is not set
-CONFIG_ACPI_BLACKLIST_YEAR=0
-# CONFIG_ACPI_DEBUG is not set
-CONFIG_ACPI_EC=y
-CONFIG_ACPI_POWER=y
-CONFIG_ACPI_SYSTEM=y
-# CONFIG_X86_PM_TIMER is not set
-# CONFIG_ACPI_CONTAINER is not set
-
-#
-# APM (Advanced Power Management) BIOS Support
-#
-# CONFIG_APM is not set
+# CONFIG_ACPI is not set
 
 #
 # CPU Frequency scaling
@@ -217,12 +199,12 @@ CONFIG_ACPI_SYSTEM=y
 #
 CONFIG_PCI=y
 # CONFIG_PCI_GOBIOS is not set
-CONFIG_PCI_GOMMCONFIG=y
-# CONFIG_PCI_GODIRECT is not set
+# CONFIG_PCI_GOMMCONFIG is not set
+CONFIG_PCI_GODIRECT=y
 # CONFIG_PCI_GOANY is not set
-CONFIG_PCI_MMCONFIG=y
-CONFIG_PCIEPORTBUS=y
-# CONFIG_PCI_LEGACY_PROC is not set
+CONFIG_PCI_DIRECT=y
+# CONFIG_PCIEPORTBUS is not set
+CONFIG_PCI_LEGACY_PROC=y
 # CONFIG_PCI_DEBUG is not set
 CONFIG_ISA_DMA_API=y
 # CONFIG_ISA is not set
@@ -354,24 +336,16 @@ CONFIG_PREVENT_FIRMWARE_BUILD=y
 #
 # Parallel port support
 #
-CONFIG_PARPORT=y
-CONFIG_PARPORT_PC=y
-# CONFIG_PARPORT_SERIAL is not set
-# CONFIG_PARPORT_PC_FIFO is not set
-# CONFIG_PARPORT_PC_SUPERIO is not set
-# CONFIG_PARPORT_GSC is not set
-# CONFIG_PARPORT_1284 is not set
+# CONFIG_PARPORT is not set
 
 #
 # Plug and Play support
 #
-# CONFIG_PNP is not set
 
 #
 # Block devices
 #
 # CONFIG_BLK_DEV_FD is not set
-# CONFIG_PARIDE is not set
 # CONFIG_BLK_CPQ_DA is not set
 # CONFIG_BLK_CPQ_CISS_DA is not set
 # CONFIG_BLK_DEV_DAC960 is not set
@@ -389,39 +363,7 @@ CONFIG_BLK_DEV_RAM_COUNT=16
 #
 # ATA/ATAPI/MFM/RLL support
 #
-CONFIG_IDE=y
-CONFIG_IDE_MAX_HWIFS=2
-CONFIG_BLK_DEV_IDE=y
-
-#
-# Please see Documentation/ide.txt for help/info on IDE drives
-#
-# CONFIG_BLK_DEV_IDE_SATA is not set
-# CONFIG_BLK_DEV_HD_IDE is not set
-CONFIG_BLK_DEV_IDEDISK=y
-CONFIG_IDEDISK_MULTI_MODE=y
-# CONFIG_BLK_DEV_IDECD is not set
-# CONFIG_BLK_DEV_IDETAPE is not set
-# CONFIG_BLK_DEV_IDEFLOPPY is not set
-# CONFIG_BLK_DEV_IDESCSI is not set
-# CONFIG_IDE_TASK_IOCTL is not set
-
-#
-# IDE chipset support/bugfixes
-#
-CONFIG_IDE_GENERIC=y
-# CONFIG_BLK_DEV_CMD640 is not set
-CONFIG_BLK_DEV_IDEPCI=y
-CONFIG_IDEPCI_SHARE_IRQ=y
-# CONFIG_BLK_DEV_OFFBOARD is not set
-CONFIG_BLK_DEV_GENERIC=y
-# CONFIG_BLK_DEV_OPTI621 is not set
-# CONFIG_BLK_DEV_RZ1000 is not set
-# CONFIG_BLK_DEV_IDEDMA_PCI is not set
-# CONFIG_IDE_ARM is not set
-# CONFIG_BLK_DEV_IDEDMA is not set
-# CONFIG_IDEDMA_AUTO is not set
-# CONFIG_BLK_DEV_HD is not set
+# CONFIG_IDE is not set
 
 #
 # SCSI device support
@@ -450,7 +392,7 @@ CONFIG_BLK_DEV_SD=y
 #
 # SCSI Transport Attributes
 #
-# CONFIG_SCSI_SPI_ATTRS is not set
+CONFIG_SCSI_SPI_ATTRS=y
 # CONFIG_SCSI_FC_ATTRS is not set
 # CONFIG_SCSI_ISCSI_ATTRS is not set
 # CONFIG_SCSI_SAS_ATTRS is not set
@@ -471,24 +413,8 @@ CONFIG_BLK_DEV_SD=y
 # CONFIG_MEGARAID_NEWGEN is not set
 # CONFIG_MEGARAID_LEGACY is not set
 # CONFIG_MEGARAID_SAS is not set
-CONFIG_SCSI_SATA=y
-CONFIG_SCSI_SATA_AHCI=y
-# CONFIG_SCSI_SATA_SVW is not set
-CONFIG_SCSI_ATA_PIIX=y
-# CONFIG_SCSI_SATA_MV is not set
-# CONFIG_SCSI_SATA_NV is not set
-# CONFIG_SCSI_PDC_ADMA is not set
+# CONFIG_SCSI_SATA is not set
 # CONFIG_SCSI_HPTIOP is not set
-# CONFIG_SCSI_SATA_QSTOR is not set
-# CONFIG_SCSI_SATA_PROMISE is not set
-# CONFIG_SCSI_SATA_SX4 is not set
-# CONFIG_SCSI_SATA_SIL is not set
-# CONFIG_SCSI_SATA_SIL24 is not set
-# CONFIG_SCSI_SATA_SIS is not set
-# CONFIG_SCSI_SATA_ULI is not set
-# CONFIG_SCSI_SATA_VIA is not set
-# CONFIG_SCSI_SATA_VITESSE is not set
-CONFIG_SCSI_SATA_INTEL_COMBINED=y
 # CONFIG_SCSI_BUSLOGIC is not set
 # CONFIG_SCSI_DMX3191D is not set
 # CONFIG_SCSI_EATA is not set
@@ -497,8 +423,6 @@ CONFIG_SCSI_SATA_INTEL_COMBINED=y
 # CONFIG_SCSI_IPS is not set
 # CONFIG_SCSI_INITIO is not set
 # CONFIG_SCSI_INIA100 is not set
-# CONFIG_SCSI_PPA is not set
-# CONFIG_SCSI_IMM is not set
 # CONFIG_SCSI_SYM53C8XX_2 is not set
 # CONFIG_SCSI_IPR is not set
 # CONFIG_SCSI_QLOGIC_FC is not set
@@ -518,10 +442,12 @@ CONFIG_SCSI_SATA_INTEL_COMBINED=y
 #
 # Fusion MPT device support
 #
-# CONFIG_FUSION is not set
-# CONFIG_FUSION_SPI is not set
+CONFIG_FUSION=y
+CONFIG_FUSION_SPI=y
 # CONFIG_FUSION_FC is not set
 # CONFIG_FUSION_SAS is not set
+CONFIG_FUSION_MAX_SGE=16
+# CONFIG_FUSION_CTL is not set
 
 #
 # IEEE 1394 (FireWire) support
@@ -567,18 +493,33 @@ CONFIG_MII=y
 #
 # CONFIG_NET_TULIP is not set
 # CONFIG_HP100 is not set
-# CONFIG_NET_PCI is not set
-# CONFIG_NET_POCKET is not set
+CONFIG_NET_PCI=y
+CONFIG_PCNET32=y
+# CONFIG_AMD8111_ETH is not set
+# CONFIG_ADAPTEC_STARFIRE is not set
+# CONFIG_B44 is not set
+# CONFIG_FORCEDETH is not set
+# CONFIG_DGRS is not set
+# CONFIG_EEPRO100 is not set
+# CONFIG_E100 is not set
+# CONFIG_FEALNX is not set
+# CONFIG_NATSEMI is not set
+# CONFIG_NE2K_PCI is not set
+# CONFIG_8139CP is not set
+# CONFIG_8139TOO is not set
+# CONFIG_SIS900 is not set
+# CONFIG_EPIC100 is not set
+# CONFIG_SUNDANCE is not set
+# CONFIG_TLAN is not set
+# CONFIG_VIA_RHINE is not set
 
 #
 # Ethernet (1000 Mbit)
 #
 # CONFIG_ACENIC is not set
 # CONFIG_DL2K is not set
-# CONFIG_VMXNET is not set
-CONFIG_E1000=y
-# CONFIG_E1000_NAPI is not set
-# CONFIG_E1000_DISABLE_PACKET_SPLIT is not set
+CONFIG_VMXNET=y
+# CONFIG_E1000 is not set
 # CONFIG_NS83820 is not set
 # CONFIG_HAMACHI is not set
 # CONFIG_YELLOWFIN is not set
@@ -587,6 +528,7 @@ CONFIG_E1000=y
 # CONFIG_SKGE is not set
 # CONFIG_SKY2 is not set
 # CONFIG_SK98LIN is not set
+# CONFIG_VIA_VELOCITY is not set
 # CONFIG_TIGON3 is not set
 # CONFIG_BNX2 is not set
 
@@ -613,7 +555,6 @@ CONFIG_E1000=y
 # CONFIG_WAN is not set
 # CONFIG_FDDI is not set
 # CONFIG_HIPPI is not set
-# CONFIG_PLIP is not set
 # CONFIG_PPP is not set
 # CONFIG_SLIP is not set
 # CONFIG_NET_FC is not set
@@ -635,46 +576,62 @@ CONFIG_E1000=y
 #
 # Input device support
 #
-# CONFIG_INPUT is not set
+CONFIG_INPUT=y
+
+#
+# Userland interfaces
+#
+# CONFIG_INPUT_MOUSEDEV is not set
+# CONFIG_INPUT_JOYDEV is not set
+# CONFIG_INPUT_TSDEV is not set
+# CONFIG_INPUT_EVDEV is not set
+# CONFIG_INPUT_EVBUG is not set
+
+#
+# Input Device Drivers
+#
+CONFIG_INPUT_KEYBOARD=y
+CONFIG_KEYBOARD_ATKBD=y
+# CONFIG_KEYBOARD_SUNKBD is not set
+# CONFIG_KEYBOARD_LKKBD is not set
+# CONFIG_KEYBOARD_XTKBD is not set
+# CONFIG_KEYBOARD_NEWTON is not set
+# CONFIG_INPUT_MOUSE is not set
+# CONFIG_INPUT_JOYSTICK is not set
+# CONFIG_INPUT_TOUCHSCREEN is not set
+# CONFIG_INPUT_MISC is not set
 
 #
 # Hardware I/O ports
 #
-# CONFIG_SERIO is not set
+CONFIG_SERIO=y
+CONFIG_SERIO_I8042=y
+# CONFIG_SERIO_SERPORT is not set
+# CONFIG_SERIO_CT82C710 is not set
+# CONFIG_SERIO_PCIPS2 is not set
+CONFIG_SERIO_LIBPS2=y
+# CONFIG_SERIO_RAW is not set
 # CONFIG_GAMEPORT is not set
 
 #
 # Character devices
 #
-# CONFIG_VT is not set
+CONFIG_VT=y
+CONFIG_VT_CONSOLE=y
+CONFIG_HW_CONSOLE=y
 # CONFIG_SERIAL_NONSTANDARD is not set
 
 #
 # Serial drivers
 #
-CONFIG_SERIAL_8250=y
-CONFIG_SERIAL_8250_CONSOLE=y
-# CONFIG_SERIAL_8250_ACPI is not set
-CONFIG_SERIAL_8250_NR_UARTS=2
-CONFIG_SERIAL_8250_RUNTIME_UARTS=2
-# CONFIG_SERIAL_8250_EXTENDED is not set
+# CONFIG_SERIAL_8250 is not set
 
 #
 # Non-8250 serial port support
 #
-CONFIG_SERIAL_CORE=y
-CONFIG_SERIAL_CORE_CONSOLE=y
 # CONFIG_SERIAL_JSM is not set
 # CONFIG_UNIX98_PTYS is not set
 # CONFIG_LEGACY_PTYS is not set
-# CONFIG_PRINTER is not set
-# CONFIG_PPDEV is not set
-# CONFIG_TIPAR is not set
-CONFIG_PANEL=y
-CONFIG_PANEL_PARPORT=0
-CONFIG_PANEL_PROFILE=4
-CONFIG_PANEL_CHANGE_MESSAGE=y
-CONFIG_PANEL_BOOT_MESSAGE="Initializing..."
 
 #
 # IPMI
@@ -692,6 +649,7 @@ CONFIG_NVRAM=y
 # CONFIG_DTLK is not set
 # CONFIG_R3964 is not set
 # CONFIG_APPLICOM is not set
+# CONFIG_SONYPI is not set
 
 #
 # Ftape, the floppy tape device driver
@@ -702,7 +660,6 @@ CONFIG_NVRAM=y
 # CONFIG_MWAVE is not set
 # CONFIG_CS5535_GPIO is not set
 # CONFIG_RAW_DRIVER is not set
-# CONFIG_HPET is not set
 # CONFIG_HANGCHECK_TIMER is not set
 
 #
@@ -756,6 +713,13 @@ CONFIG_NVRAM=y
 # Graphics support
 #
 # CONFIG_FB is not set
+# CONFIG_VIDEO_SELECT is not set
+
+#
+# Console display driver support
+#
+CONFIG_VGA_CONSOLE=y
+CONFIG_DUMMY_CONSOLE=y
 
 #
 # Sound
@@ -889,9 +853,9 @@ CONFIG_MSDOS_PARTITION=y
 # Kernel hacking
 #
 # CONFIG_PRINTK_TIME is not set
-# CONFIG_MAGIC_SYSRQ is not set
+CONFIG_MAGIC_SYSRQ=y
 CONFIG_DEBUG_KERNEL=y
-CONFIG_LOG_BUF_SHIFT=12
+CONFIG_LOG_BUF_SHIFT=14
 # CONFIG_DETECT_SOFTLOCKUP is not set
 # CONFIG_SCHEDSTATS is not set
 # CONFIG_DEBUG_MUTEXES is not set
@@ -935,3 +899,4 @@ CONFIG_GENERIC_HARDIRQS=y
 CONFIG_GENERIC_IRQ_PROBE=y
 CONFIG_X86_BIOS_REBOOT=y
 CONFIG_KTIME_SCALAR=y
+# CONFIG_SCSI_ARCMSR is not set

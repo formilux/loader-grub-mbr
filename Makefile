@@ -2,9 +2,9 @@
 V =
 NOCLEAN =
 
-FWVER         = 2.0
+FWVER         = 2.1
 BASE_KVER     = 2.6.16
-KVER          = 2.6.16.37
+KVER          = 2.6.16.62
 GRUBVER       = 0.96
 GENE2FSVER    = 1.4
 
