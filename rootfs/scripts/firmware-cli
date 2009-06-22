@@ -3,8 +3,8 @@
 # this program uses several external programs :
 # tar,mount,umount,mke2fs,[tune2fs],serial-load,grub-mbr-default,update-boot-image,wget,tftp,mk-flash-layout
 
-# catch Ctrl-C
-trap : 2
+# catch Ctrl-C, Ctrl-|, Ctrl-Z, and sigpipe
+trap : SIGINT SIGQUIT SIGPIPE SIGTSTP
 
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
