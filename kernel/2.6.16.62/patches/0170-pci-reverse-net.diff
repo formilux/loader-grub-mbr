@@ -1,0 +1,61 @@
+/*
+ * scan network devices in the opposite order on each bus if
+ * pci=rev-net is found.
+ */
+diff -urNX /usr/src/dontdiff linux-2.6.16.62-orig/arch/i386/pci/common.c linux-2.6.16.62/arch/i386/pci/common.c
+--- linux-2.6.16.62-orig/arch/i386/pci/common.c	2006-02-20 09:33:44 +0100
++++ linux-2.6.16.62/arch/i386/pci/common.c	2009-09-14 17:36:31 +0200
+@@ -20,6 +20,8 @@
+ extern  void pcibios_sort(void);
+ #endif
+ 
++extern int pci_reverse_net;
++
+ unsigned int pci_probe = PCI_PROBE_BIOS | PCI_PROBE_CONF1 | PCI_PROBE_CONF2 |
+ 				PCI_PROBE_MMCONF;
+ 
+@@ -235,6 +238,9 @@
+ 	} else if (!strcmp(str, "routeirq")) {
+ 		pci_routeirq = 1;
+ 		return NULL;
++	} else if (!strcmp(str, "rev-net")) {
++		pci_reverse_net = 1;
++		return NULL;
+ 	}
+ 	return str;
+ }
+diff -urNX /usr/src/dontdiff linux-2.6.16.62-orig/arch/i386/pci/pci.h linux-2.6.16.62/arch/i386/pci/pci.h
+--- linux-2.6.16.62-orig/arch/i386/pci/pci.h	2006-02-20 09:33:44 +0100
++++ linux-2.6.16.62/arch/i386/pci/pci.h	2009-09-14 15:45:24 +0200
+@@ -25,6 +25,7 @@
+ #define PCI_ASSIGN_ROMS		0x1000
+ #define PCI_BIOS_IRQ_SCAN	0x2000
+ #define PCI_ASSIGN_ALL_BUSSES	0x4000
++#define PCI_REV_NETWORK		0x8000
+ 
+ extern unsigned int pci_probe;
+ extern unsigned long pirq_table_addr;
+diff -urNX /usr/src/dontdiff linux-2.6.16.62-orig/drivers/pci/probe.c linux-2.6.16.62/drivers/pci/probe.c
+--- linux-2.6.16.62-orig/drivers/pci/probe.c	2006-12-18 14:07:14 +0100
++++ linux-2.6.16.62/drivers/pci/probe.c	2009-09-14 17:35:39 +0200
+@@ -22,6 +22,8 @@
+ 
+ LIST_HEAD(pci_devices);
+ 
++int pci_reverse_net;
++
+ #ifdef HAVE_PCI_LEGACY
+ /**
+  * pci_create_legacy_files - create legacy I/O port and memory files
+@@ -833,7 +835,10 @@
+ 	 */
+ 	INIT_LIST_HEAD(&dev->global_list);
+ 	spin_lock(&pci_bus_lock);
+-	list_add_tail(&dev->bus_list, &bus->devices);
++	if (pci_reverse_net && (dev->class >> 8) == PCI_CLASS_NETWORK_ETHERNET)
++		list_add(&dev->bus_list, &bus->devices);
++	else
++		list_add_tail(&dev->bus_list, &bus->devices);
+ 	spin_unlock(&pci_bus_lock);
+ }
+ 
