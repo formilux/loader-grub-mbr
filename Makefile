@@ -22,9 +22,19 @@ KDIR          := $(BUILD_DIR)/kernel/linux-$(KVER)
 TEMP_FILES    := $(KDIR)/output $(KDIR)/prebuilt/initramfs_data.cpio $(KDIR)/prebuilt/.data-kernel
 PERM_FILES    := $(INITRAMFS)
 
-# Use the configuration suffixes to determine the list of platforms
-PLATFORMS     := $(shell x=( $$(echo kernel/$(KVER)/configs/config-$(KVER)-*) ); \
+# Use the kernel configuration names to determine the list of possible software
+# platforms (1 sw platform = 1 kernel = 1 firmware.img).
+SW_PLATFORMS  := $(shell x=( $$(echo kernel/$(KVER)/configs/config-$(KVER)-*) ); \
 	           echo $${x[@]\#\#*-}|tr ' ' '\n'|sort -u )
+
+# Use the boot loader configuration names to determine the list of possible
+# hardware platforms, which must at least include the software ones.
+HW_PLATFORMS  := $(shell x=( $$(echo loader/menu-*.lst) ); \
+                   x=( $${x[@]\#loader/menu-} ); \
+                   echo $${x[@]%.lst} | tr ' ' '\n' | sort -u )
+
+# Platforms which will be built, default to all hardware platforms
+PLATFORMS     := $(HW_PLATFORMS)
 
 # various commands which can be overridden by the command line.
 
@@ -165,14 +175,19 @@ $(BUILD_DIR)/rootfs.installed: rootfs/scripts/preinit rootfs/prebuilt/init rootf
 # the platform's name back within the scripts, 
 kernel: $(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%.img,$(PLATFORMS))
 
-$(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
+# rack variant: it is simply the same as the original with a different menu.lst
+$(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%-rack.img,$(SW_PLATFORMS)): \
+  $(FINAL_DIR)/firmware-$(FWVER)-%-rack.img: $(KDIR)/output/firmware-$(FWVER)-%.img
+	ln -s $(patsubst $(KDIR)/output/%,%,$<) $@
+
+$(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%.img,$(SW_PLATFORMS)): \
   $(FINAL_DIR)/firmware-$(FWVER)-%.img: $(KDIR)/output/firmware-$(FWVER)-%.img
 
 	$(Q) cp $< $@
 	@echo "Firmware $(FWVER) for $(patsubst $(FINAL_DIR)/firmware-$(FWVER)-%.img,%,$@) is available here :"
 	@echo "  -> $(subst $(CURDIR)/,,$@)"
 
-$(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(PLATFORMS)): \
+$(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(SW_PLATFORMS)): \
   $(KDIR)/output/firmware-$(FWVER)-%.img: \
   kernel/$(KVER)/configs/config-$(KVER)-% \
   $(KDIR)/.patched $(KDIR)/prebuilt/.data-kernel
@@ -250,8 +265,8 @@ $(BUILD_DIR)/kernel/linux-$(BASE_KVER)/.extracted: $(SOURCE_DIR)/linux-$(BASE_KV
 
 loader: $(patsubst %,$(FINAL_DIR)/bootstrap-$(FWVER)-%.fs,$(PLATFORMS))
 
-$(patsubst %,$(FINAL_DIR)/bootstrap-$(FWVER)-%.fs,$(PLATFORMS)): \
-	$(FINAL_DIR)/bootstrap-$(FWVER)-%.fs: $(FINAL_DIR)/firmware-$(FWVER)-%.img \
+$(patsubst %,$(FINAL_DIR)/bootstrap-$(FWVER)-%.fs,$(HW_PLATFORMS)): \
+$(FINAL_DIR)/bootstrap-$(FWVER)-%.fs: $(FINAL_DIR)/firmware-$(FWVER)-%.img \
 	$(BUILD_DIR)/tools/grub-$(GRUBVER)/grub/grub \
 	$(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/genext2fs \
 	./loader/create-part
@@ -321,7 +336,7 @@ $(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/genext2fs: $(BUILD_DIR)/tools/genext2
 
 instfs: $(patsubst %,$(INSTRAMFS_PFX)-%.cpio,$(PLATFORMS))
 
-$(patsubst %,$(INSTRAMFS_PFX)-%.cpio,$(PLATFORMS)): \
+$(patsubst %,$(INSTRAMFS_PFX)-%.cpio,$(HW_PLATFORMS)): \
   $(INSTRAMFS_PFX)-%.cpio: $(INSTRAMFS_DIR)/.installed/%
 	@echo "Creating initramfs archive..."
 	$(Q) mkdir -p $(FINAL_DIR)
@@ -332,7 +347,7 @@ $(patsubst %,$(INSTRAMFS_PFX)-%.cpio,$(PLATFORMS)): \
 	done | \
 	  (cd $(INSTRAMFS_DIR)/$(^F); $(cmd_sudo) $(cmd_cpio) -o -H newc) > $@
 
-$(patsubst %,$(INSTRAMFS_DIR)/.installed/%,$(PLATFORMS)): \
+$(patsubst %,$(INSTRAMFS_DIR)/.installed/%,$(HW_PLATFORMS)): \
   $(INSTRAMFS_DIR)/.installed/%: $(FINAL_DIR)/bootstrap-$(FWVER)-%.fs $(BUILD_DIR)/rootfs.installed
 	@echo "Creating instfs archive..."
 	$(Q) mkdir -p $(@D)
@@ -347,14 +362,22 @@ $(patsubst %,$(INSTRAMFS_DIR)/.installed/%,$(PLATFORMS)): \
 # the platform's name back within the scripts, 
 instimg: $(patsubst %,$(FINAL_DIR)/instimg-$(FWVER)-%.img,$(PLATFORMS))
 
-$(patsubst %,$(FINAL_DIR)/instimg-$(FWVER)-%.img,$(PLATFORMS)): \
+# Right now we cannot build installation images for HW platforms which are
+# derived from SW platforms. Report it without failing the whole process.
+$(patsubst %,$(FINAL_DIR)/instimg-$(FWVER)-%-rack.img,$(SW_PLATFORMS)): \
+  $(FINAL_DIR)/instimg-$(FWVER)-%-rack.img:
+	@echo "Installation image for HW platform $(patsubst $(FINAL_DIR)/instimg-$(FWVER)-%.img,%,$@) will not be built."
+
+$(patsubst %,$(FINAL_DIR)/instimg-$(FWVER)-%.img,$(SW_PLATFORMS)): \
   $(FINAL_DIR)/instimg-$(FWVER)-%.img: $(KDIR)/output/instimg-$(FWVER)-%.img
 
 	$(Q) cp $< $@
 	@echo "Install image $(FWVER) for $(patsubst $(FINAL_DIR)/instimg-$(FWVER)-%.img,%,$@) is available here :"
 	@echo "  -> $(subst $(CURDIR)/,,$@)"
 
-$(patsubst %,$(KDIR)/output/instimg-$(FWVER)-%.img,$(PLATFORMS)): \
+# Note that here we're reusing the kernel build directory of a previous image,
+# but we may not have a matching between hardware and software platforms.
+$(patsubst %,$(KDIR)/output/instimg-$(FWVER)-%.img,$(SW_PLATFORMS)): \
   $(KDIR)/output/instimg-$(FWVER)-%.img: \
   kernel/$(KVER)/configs/config-$(KVER)-% \
   $(KDIR)/.patched $(KDIR)/prebuilt/.data-instimg-%
@@ -378,7 +401,7 @@ $(patsubst %,$(KDIR)/output/instimg-$(FWVER)-%.img,$(PLATFORMS)): \
 	  fi)
 	@echo "  -> done."
 
-$(patsubst %,$(KDIR)/prebuilt/.data-instimg-%,$(PLATFORMS)): \
+$(patsubst %,$(KDIR)/prebuilt/.data-instimg-%,$(HW_PLATFORMS)): \
   $(KDIR)/prebuilt/.data-instimg-%:
 	$(Q) if [ ! -s "$(INSTRAMFS_PFX)-$(patsubst $(KDIR)/prebuilt/.data-instimg-%,%,$@).cpio" ]; then \
                echo "Missing instfs : $(INSTRAMFS_PFX)-$(patsubst $(KDIR)/prebuilt/.data-instimg-%,%,$@).cpio."; \
