@@ -1,0 +1,45 @@
+#
+# boot last working image by default, and allow one failure
+#
+
+hiddenmenu
+
+serial --unit=0 --speed=9600
+terminal serial
+
+# Here comes the mapping between saved entries and usable entries. All
+# unexpected entries should be mapped to any image in order not to loop.
+# Old entries 0..4 are remapped too.
+savemap 240:0:241 244:1:245 241:0:242 242:1:243 243:1:246 245:1:246 246:0:247 247:0:242 0:0:241 1:0:242 2:1:245 3:1:246 4:0:241
+
+default saved
+timeout 2
+fallback 0 1 2
+
+# image 0
+title Image 1
+   root (hd0,1)
+   savedefault savemap
+   kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 hdb=noprobe ide1=noprobe pci=rev-net reboot=b nokeyb flash=hda2 img=active
+   initrd /sys/active/initrd.img 
+
+# image 1
+title Image 2
+   root (hd0,1)
+   savedefault savemap
+   kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 hdb=noprobe ide1=noprobe pci=rev-net reboot=b nokeyb flash=hda2 img=backup
+   initrd /sys/backup/initrd.img 
+
+# image 2
+title Maintenance Kernel
+   root (hd0,0)
+   kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 hdb=noprobe ide1=noprobe pci=rev-net reboot=b flash=hda2 img=maint
+
+# image 3
+title Reboot
+   reboot
+
+# image 4
+title Halt
+   halt
+
