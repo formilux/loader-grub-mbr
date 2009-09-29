@@ -533,8 +533,8 @@ do_view_images() {
   [ -s $FLASH_MNT/sys/backup/system.ver ] && \
     backup=$(cat $FLASH_MNT/sys/backup/system.ver 2>/dev/null)
 
-  do_inform "Active image version  : $active"
-  do_inform "Backup image version  : $backup"
+  do_inform "Image 1 (active) version  : $active"
+  do_inform "Image 2 (backup) version  : $backup"
   umount $FLASH_MNT >/dev/null 2>&1
   do_inform
   return 0
@@ -737,7 +737,7 @@ do_check_and_save_image() {
 do_menu_boot_image() {
   do_view_images
 
-  while do_menu "Boot image|Boot pending image|Boot active image|Boot backup image"; do
+  while do_menu "Boot image|Boot pending image|Boot image 1 (active)|Boot image 2 (backup)"; do
     if [ $LINE = 1 ]; then
       if [ ! -s $DOWNLOAD_IMAGE_FILE ]; then
         do_inform "No pending image. Please download an image first."
@@ -781,14 +781,14 @@ do_menu_boot_image() {
       umount $FLASH_MNT >/dev/null 2>&1 || mkdir -p $FLASH_MNT >/dev/null 2>&1
       mount -r $flash $FLASH_MNT >/dev/null 2>&1
       if [ $LINE = 2 ]; then     ### active image
-        do_inform "Loading active image in memory..."
+        do_inform "Loading image 1 (active) in memory..."
 	_kargs="$(cat $FLASH_MNT/sys/active/kernel.arg)"; _kargs="$(echo $_kargs|sed 's/console=[^ ]*[ ]*//')"
         kexec -l -c "$_kargs ${CONSOLE:+$CONSOLE }flash=${FLASH_PART##*/} img=active" -i "$(echo $FLASH_MNT/sys/active/initrd.img)" $FLASH_MNT/sys/active/kernel.img
 	err=$?
         # fake current boot to "active(retry)"
         grub-mbr-default -q $FLASH_MBR 2
       else
-        do_inform "Loading backup image in memory..."
+        do_inform "Loading image 2 (backup) in memory..."
 	_kargs="$(cat $FLASH_MNT/sys/backup/kernel.arg)"; _kargs="$(echo $_kargs|sed 's/console=[^ ]*[ ]*//')"
         kexec -l -c "$_kargs ${CONSOLE:+$CONSOLE }flash=${FLASH_PART##*/} img=backup" -i "$(echo $FLASH_MNT/sys/backup/initrd.img)" $FLASH_MNT/sys/backup/kernel.img
 	err=$?
@@ -826,20 +826,20 @@ do_menu_change_default_image() {
 
   _cur=$(grub-mbr-default -q $FLASH_MBR)
   case $_cur in
-    0|1) do_inform "Next boot will use ACTIVE image" ;;
-    2|3) do_inform "Next boot will use BACKUP image" ;;
+    0|1) do_inform "Next boot will use image 1 (active)" ;;
+    2|3) do_inform "Next boot will use image 2 (backup)" ;;
     *)   do_inform "Next boot will stop on firmware" ;;
   esac
 
-  if do_menu "Default boot|Use active image for next boot|Use backup image for next boot"; then
+  if do_menu "Default boot|Use image 1 (active) for next boot|Use image 2 (backup) for next boot"; then
     if [ $LINE = 1 ]; then
       # set next boot to "active"
       grub-mbr-default -q $FLASH_MBR 0
-      do_inform "Next boot will use ACTIVE image"
+      do_inform "Next boot will use image 1 (active)"
     else
       # set next boot to "active"
       grub-mbr-default -q $FLASH_MBR 2
-      do_inform "Next boot will use BACKUP image"
+      do_inform "Next boot will use image 2 (backup)"
     fi
   fi
 
@@ -880,8 +880,8 @@ do_menu_delete_image() {
 
   _cur=$(grub-mbr-default -q $FLASH_MBR)
   case $_cur in
-    0|1) do_inform "Next boot will use ACTIVE image" ;;
-    2|3) do_inform "Next boot will use BACKUP image" ;;
+    0|1) do_inform "Next boot will use image 1 (active)" ;;
+    2|3) do_inform "Next boot will use image 2 (backup)" ;;
     *)   do_inform "Next boot will stop on firmware" ;;
   esac
 
