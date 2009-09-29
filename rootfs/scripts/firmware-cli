@@ -820,8 +820,7 @@ do_menu_boot_image() {
   return 0
 }
 
-
-# boots an image
+# change an image
 do_menu_change_default_image() {
   do_view_images
 
@@ -847,7 +846,7 @@ do_menu_change_default_image() {
   return 0
 }
 
-# boots an image
+# restore factory config
 do_menu_restore_factory_defaults() {
   do_test_system_partition >/dev/null 2>&1 || do_select_flash || return 1
 
@@ -875,7 +874,52 @@ do_menu_restore_factory_defaults() {
   return 0
 }
 
-# boots an image
+# delete an image
+do_menu_delete_image() {
+  do_view_images
+
+  _cur=$(grub-mbr-default -q $FLASH_MBR)
+  case $_cur in
+    0|1) do_inform "Next boot will use ACTIVE image" ;;
+    2|3) do_inform "Next boot will use BACKUP image" ;;
+    *)   do_inform "Next boot will stop on firmware" ;;
+  esac
+
+  if do_menu "Delete image|Delete image 1 (active)|Delete image 2 (backup)"; then
+    if [ $LINE = 1 ]; then
+      # remove image 1 (active)
+      _cur=active
+      do_inform "Removing image 1 (active)"
+    else
+      # remove image 2 (backup)
+      _cur=backup
+      do_inform "Removing image 2 (backup)"
+    fi
+
+    if mount $flash $FLASH_MNT >/dev/null 2>&1 && \
+	rm -rf $FLASH_MNT/sys/$_cur >/dev/null 2>&1 && \
+	umount $FLASH_MNT >/dev/null 2>&1; then
+	do_inform
+	do_inform "Image has been definitely removed."
+	if [ $LINE = 1 ]; then
+	    grub-mbr-default -q $FLASH_MBR 0
+	    do_inform "Next boot will use image 1 (backup)"
+	else
+	    grub-mbr-default -q $FLASH_MBR 2
+	    do_inform "Next boot will use image 2 (backup)"
+	fi
+	do_prompt
+    else
+	do_inform
+	do_inform "For an unknown reason, this image could not be removed."
+	do_prompt
+    fi
+  fi
+
+  return 0
+}
+
+# revert to backup configuration
 do_menu_revert_config() {
   do_test_system_partition >/dev/null 2>&1 || do_select_flash || return 1
 
