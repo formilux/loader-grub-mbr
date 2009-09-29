@@ -229,7 +229,8 @@ do_menu() {
     echo
     while [ -n "$_line_" ]; do
       _str_="${_line_%%|*}";_line_="${_line_#$_str_}";_line_="${_line_#|}"
-      echo "  $_int_) $_str_"
+      [ -z "${_int_#?}" ] && _pad_=" " || _pad_=""
+      echo " $_pad_$_int_) $_str_"
       _int_=$(($_int_+1))
     done
     [ "$_err_" -eq 0 ] && echo -n "Choice (or <enter> to exit): " || { echo ">>> Invalid choice!";echo -n "Try again (or <enter> to exit): "; }
