@@ -1,0 +1,83 @@
+From 9dbb9ec4187ac22f99b844cfcd1538a037d16e95 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Wed, 2 Feb 2011 12:40:44 +0100
+Subject: x86/pci: add support for pci=rev-net
+
+Scan network devices in the opposite order on each bus if pci=rev-net is found.
+---
+ arch/x86/include/asm/pci_x86.h |    1 +
+ arch/x86/pci/common.c          |    5 +++++
+ drivers/pci/probe.c            |    8 ++++++--
+ 3 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/include/asm/pci_x86.h b/arch/x86/include/asm/pci_x86.h
+index cd2a31d..da605b5 100644
+--- a/arch/x86/include/asm/pci_x86.h
++++ b/arch/x86/include/asm/pci_x86.h
+@@ -30,6 +30,7 @@
+ #define PCI_HAS_IO_ECS		0x40000
+ #define PCI_NOASSIGN_ROMS	0x80000
+ #define PCI_ROOT_NO_CRS		0x100000
++#define PCI_REV_NETWORK		0x200000
+ 
+ extern unsigned int pci_probe;
+ extern unsigned long pirq_table_addr;
+diff --git a/arch/x86/pci/common.c b/arch/x86/pci/common.c
+index 215a27a..fd1deab 100644
+--- a/arch/x86/pci/common.c
++++ b/arch/x86/pci/common.c
+@@ -17,6 +17,8 @@
+ #include <asm/smp.h>
+ #include <asm/pci_x86.h>
+ 
++extern int pci_reverse_net;
++
+ unsigned int pci_probe = PCI_PROBE_BIOS | PCI_PROBE_CONF1 | PCI_PROBE_CONF2 |
+ 				PCI_PROBE_MMCONF;
+ 
+@@ -524,6 +526,9 @@ char * __devinit  pcibios_setup(char *str)
+ 	} else if (!strcmp(str, "routeirq")) {
+ 		pci_routeirq = 1;
+ 		return NULL;
++	} else if (!strcmp(str, "rev-net")) {
++		pci_reverse_net = 1;
++		return NULL;
+ 	} else if (!strcmp(str, "skip_isa_align")) {
+ 		pci_probe |= PCI_CAN_SKIP_ISA_ALIGN;
+ 		return NULL;
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index f4adba2..d0c5305 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -19,7 +19,6 @@
+ LIST_HEAD(pci_root_buses);
+ EXPORT_SYMBOL(pci_root_buses);
+ 
+-
+ static int find_anything(struct device *dev, void *data)
+ {
+ 	return 1;
+@@ -42,6 +41,8 @@ int no_pci_devices(void)
+ }
+ EXPORT_SYMBOL(no_pci_devices);
+ 
++int pci_reverse_net;
++
+ /*
+  * PCI Bus Class Devices
+  */
+@@ -1241,7 +1242,10 @@ void pci_device_add(struct pci_dev *dev, struct pci_bus *bus)
+ 	 * and the bus list for fixup functions, etc.
+ 	 */
+ 	down_write(&pci_bus_sem);
+-	list_add_tail(&dev->bus_list, &bus->devices);
++	if (pci_reverse_net && (dev->class >> 8) == PCI_CLASS_NETWORK_ETHERNET)
++		list_add(&dev->bus_list, &bus->devices);
++	else
++		list_add_tail(&dev->bus_list, &bus->devices);
+ 	up_write(&pci_bus_sem);
+ }
+ 
+-- 
+1.7.2.3
+

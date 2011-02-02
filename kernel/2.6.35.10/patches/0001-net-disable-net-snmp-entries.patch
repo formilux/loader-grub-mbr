@@ -1,0 +1,55 @@
+From 985a510e686774d3dc72c51036f3dab7579ee785 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Wed, 2 Feb 2011 12:30:08 +0100
+Subject: net: disable net-snmp entries
+
+This patch reduces the vmlinux image size by about 10 kB.
+---
+ net/ipv4/Makefile  |    2 +-
+ net/ipv4/af_inet.c |    6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index 80ff87c..dcb30b8 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -16,7 +16,7 @@ obj-y     := route.o inetpeer.o protocol.o \
+ obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
+ obj-$(CONFIG_IP_FIB_HASH) += fib_hash.o
+ obj-$(CONFIG_IP_FIB_TRIE) += fib_trie.o
+-obj-$(CONFIG_PROC_FS) += proc.o
++obj-$(CONFIG_PROC_NET_IPV4) += proc.o
+ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
+ obj-$(CONFIG_IP_MROUTE) += ipmr.o
+ obj-$(CONFIG_NET_IPIP) += ipip.o
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 551ce56..c0c1403 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1687,7 +1687,7 @@ fs_initcall(inet_init);
+ 
+ /* ------------------------------------------------------------------------ */
+ 
+-#ifdef CONFIG_PROC_FS
++#ifdef CONFIG_PROC_NET_IPV4
+ static int __init ipv4_proc_init(void)
+ {
+ 	int rc = 0;
+@@ -1713,12 +1713,12 @@ out_raw:
+ 	goto out;
+ }
+ 
+-#else /* CONFIG_PROC_FS */
++#else /* CONFIG_PROC_NET_IPV4 */
+ static int __init ipv4_proc_init(void)
+ {
+ 	return 0;
+ }
+-#endif /* CONFIG_PROC_FS */
++#endif /* CONFIG_PROC_NET_IPV4 */
+ 
+ MODULE_ALIAS_NETPROTO(PF_INET);
+ 
+-- 
+1.7.2.3
+

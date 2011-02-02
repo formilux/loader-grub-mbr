@@ -2,9 +2,9 @@
 V =
 NOCLEAN =
 
-FWVER         = 2.2
-BASE_KVER     = 2.6.16
-KVER          = 2.6.16.62
+FWVER         = 3.0
+BASE_KVER     = 2.6.35
+KVER          = 2.6.35.10
 GRUBVER       = 0.96
 GENE2FSVER    = 1.4
 
@@ -47,7 +47,7 @@ cmd_install   := install
 cmd_bzip2     := bzip2
 cmd_find      := find
 cmd_patch     := patch
-cmd_kgcc      := gcc-3.4 # WARNING! gcc-4.0.[012] produces bad kexec code !
+cmd_kgcc      := i586-flx-linux-gcc-3.4 # WARNING! gcc-4.0.[012] produces bad kexec code !
 cmd_lzma      := lzma    # see doc/lzma-howto.txt for this
 cmd_make      := $(MAKE)
 
@@ -116,7 +116,7 @@ endif
 	@echo -n "Checking cmd_kgcc ($(cmd_kgcc)) : "
 	@$(cmd_kgcc) -c -xc -o /dev/null /dev/null && echo "OK" || echo "Failed"
 	@echo -n "Checking cmd_lzma ($(cmd_lzma)) : "
-	@$(cmd_lzma) e -si -so </dev/null >/dev/null 2>&1 && echo "OK" || echo "Failed. See doc/lzma-howto.txt"
+	@$(cmd_lzma) -9 -f - </dev/null >/dev/null 2>&1 && echo "OK" || echo "Failed. See doc/lzma-howto.txt"
 	@echo -n "Checking cmd_make ($(cmd_make)) : "
 	@$(cmd_make) --version >/dev/null 2>&1 && echo "OK" || echo "Failed"
 
@@ -206,10 +206,10 @@ $(patsubst %,$(KDIR)/output/firmware-$(FWVER)-%.img,$(SW_PLATFORMS)): \
 	  fi; \
 	  echo "  - compiling kernel $(KVER) for $${KBUILD_OUTPUT##*/}...";   \
 	  if $(cmd_make) bzImage                                              \
-	        CC="$(cmd_kgcc)" cmd_lzmaramfs="$(cmd_lzma) e \$$< \$$@ -d19" \
+	        CC="$(cmd_kgcc)" \
 	        cmd_gzip="$(cmd_7za) a -tgzip -mx9 -mpass=4 -so -si . <\$$< >\$$@" \
 	     > $(KDIR)/output/$(patsubst $(KDIR)/output/firmware-$(FWVER)-%.img,build-%.log,$@) 2>&1; then  \
-	    ln $${KBUILD_OUTPUT}/arch/i386/boot/bzImage $@;                   \
+	    ln $${KBUILD_OUTPUT}/arch/x86/boot/bzImage $@;                   \
 	  else                                                                \
 	    echo "Failed !!!"; echo ;                                         \
 	    echo "Tail of output/build-$${KBUILD_OUTPUT##*/}.log :";          \
@@ -387,10 +387,10 @@ $(patsubst %,$(KDIR)/output/instimg-$(FWVER)-%.img,$(SW_PLATFORMS)): \
 	  export KBUILD_OUTPUT=$(KDIR)/output/$(patsubst $(KDIR)/output/instimg-$(FWVER)-%.img,%,$@);      \
 	  echo "  - rebuilding kernel $(KVER) for $${KBUILD_OUTPUT##*/}...";   \
 	  if $(cmd_make) bzImage                                              \
-	        CC="$(cmd_kgcc)" cmd_lzmaramfs="$(cmd_lzma) e \$$< \$$@ -d19" \
+	        CC="$(cmd_kgcc)" \
 	        cmd_gzip="$(cmd_7za) a -tgzip -mx9 -mpass=4 -so -si . <\$$< >\$$@" \
 	     > $(KDIR)/output/$(patsubst $(KDIR)/output/instimg-$(FWVER)-%.img,instimg-%.log,$@) 2>&1; then  \
-	    ln $${KBUILD_OUTPUT}/arch/i386/boot/bzImage $@;                   \
+	    ln $${KBUILD_OUTPUT}/arch/x86/boot/bzImage $@;                   \
 	  else                                                                \
 	    echo "Failed !!!"; echo ;                                         \
 	    echo "Tail of output/instimg-$${KBUILD_OUTPUT##*/}.log :";        \

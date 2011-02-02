@@ -1,0 +1,340 @@
+From b2f43b0336f580c513755d5747c6271cf261d3a4 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Wed, 2 Feb 2011 20:20:43 +0100
+Subject: dmi: remove dmi tables when CONFIG_DMI is not set
+
+This saves several kB of image and 1-2 kB in the compressed image.
+---
+ arch/x86/kernel/acpi/boot.c    |    4 ++++
+ arch/x86/kernel/io_delay.c     |    2 ++
+ arch/x86/kernel/reboot.c       |    4 ++++
+ arch/x86/kernel/setup.c        |    2 ++
+ arch/x86/kernel/tsc.c          |    2 ++
+ arch/x86/pci/common.c          |    4 ++++
+ arch/x86/pci/fixup.c           |    4 ++++
+ arch/x86/pci/irq.c             |    2 ++
+ drivers/acpi/bus.c             |    4 ++++
+ drivers/acpi/ec.c              |    2 ++
+ drivers/acpi/processor_core.c  |    2 ++
+ drivers/pci/pcie/portdrv_pci.c |    2 ++
+ 12 files changed, 34 insertions(+), 0 deletions(-)
+
+diff --git a/arch/x86/kernel/acpi/boot.c b/arch/x86/kernel/acpi/boot.c
+index c05872a..87251a4 100644
+--- a/arch/x86/kernel/acpi/boot.c
++++ b/arch/x86/kernel/acpi/boot.c
+@@ -1355,6 +1355,7 @@ static int __init dmi_ignore_irq0_timer_override(const struct dmi_system_id *d)
+  * works for you, please contact linux-acpi@vger.kernel.org
+  */
+ static struct dmi_system_id __initdata acpi_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	/*
+ 	 * Boxes that need ACPI disabled
+ 	 */
+@@ -1426,10 +1427,12 @@ static struct dmi_system_id __initdata acpi_dmi_table[] = {
+ 		     },
+ 	 },
+ 	{}
++#endif
+ };
+ 
+ /* second table for DMI checks that should run after early-quirks */
+ static struct dmi_system_id __initdata acpi_dmi_table_late[] = {
++#ifdef CONFIG_DMI
+ 	/*
+ 	 * HP laptops which use a DSDT reporting as HP/SB400/10000,
+ 	 * which includes some code which overrides all temperature
+@@ -1473,6 +1476,7 @@ static struct dmi_system_id __initdata acpi_dmi_table_late[] = {
+ 		     },
+ 	 },
+ 	{}
++#endif
+ };
+ 
+ /*
+diff --git a/arch/x86/kernel/io_delay.c b/arch/x86/kernel/io_delay.c
+index a979b5b..02cf9a6 100644
+--- a/arch/x86/kernel/io_delay.c
++++ b/arch/x86/kernel/io_delay.c
+@@ -59,6 +59,7 @@ static int __init dmi_io_delay_0xed_port(const struct dmi_system_id *id)
+  * 0x80 is used:
+  */
+ static struct dmi_system_id __initdata io_delay_0xed_port_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.callback	= dmi_io_delay_0xed_port,
+ 		.ident		= "Compaq Presario V6000",
+@@ -100,6 +101,7 @@ static struct dmi_system_id __initdata io_delay_0xed_port_dmi_table[] = {
+ 		}
+ 	},
+ 	{ }
++#endif
+ };
+ 
+ void __init io_delay_init(void)
+diff --git a/arch/x86/kernel/reboot.c b/arch/x86/kernel/reboot.c
+index 76a0d71..d24924c 100644
+--- a/arch/x86/kernel/reboot.c
++++ b/arch/x86/kernel/reboot.c
+@@ -135,6 +135,7 @@ static int __init set_bios_reboot(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id __initdata reboot_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{	/* Handle problems with rebooting on Dell E520's */
+ 		.callback = set_bios_reboot,
+ 		.ident = "Dell E520",
+@@ -285,6 +286,7 @@ static struct dmi_system_id __initdata reboot_dmi_table[] = {
+ 		},
+ 	},
+ 	{ }
++#endif
+ };
+ 
+ static int __init reboot_init(void)
+@@ -445,6 +447,7 @@ static int __init set_pci_reboot(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id __initdata pci_reboot_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{	/* Handle problems with rebooting on Apple MacBook5 */
+ 		.callback = set_pci_reboot,
+ 		.ident = "Apple MacBook5",
+@@ -478,6 +481,7 @@ static struct dmi_system_id __initdata pci_reboot_dmi_table[] = {
+ 		},
+ 	},
+ 	{ }
++#endif
+ };
+ 
+ static int __init pci_reboot_init(void)
+diff --git a/arch/x86/kernel/setup.c b/arch/x86/kernel/setup.c
+index 6600cfd..a16d4d2 100644
+--- a/arch/x86/kernel/setup.c
++++ b/arch/x86/kernel/setup.c
+@@ -633,6 +633,7 @@ static int __init dmi_low_memory_corruption(const struct dmi_system_id *d)
+ 
+ /* List of systems that have known low memory corruption BIOS problems */
+ static struct dmi_system_id __initdata bad_bios_dmi_table[] = {
++#ifdef CONFIG_DMI
+ #ifdef CONFIG_X86_RESERVE_LOW_64K
+ 	{
+ 		.callback = dmi_low_memory_corruption,
+@@ -689,6 +690,7 @@ static struct dmi_system_id __initdata bad_bios_dmi_table[] = {
+ 	},
+ #endif
+ 	{}
++#endif
+ };
+ 
+ static void __init trim_bios_range(void)
+diff --git a/arch/x86/kernel/tsc.c b/arch/x86/kernel/tsc.c
+index 4094ae0..26ca043 100644
+--- a/arch/x86/kernel/tsc.c
++++ b/arch/x86/kernel/tsc.c
+@@ -825,6 +825,7 @@ static int __init dmi_mark_tsc_unstable(const struct dmi_system_id *d)
+ 
+ /* List of systems that have known TSC problems */
+ static struct dmi_system_id __initdata bad_tsc_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.callback = dmi_mark_tsc_unstable,
+ 		.ident = "IBM Thinkpad 380XD",
+@@ -834,6 +835,7 @@ static struct dmi_system_id __initdata bad_tsc_dmi_table[] = {
+ 		},
+ 	},
+ 	{}
++#endif
+ };
+ 
+ static void __init check_system_tsc_reliable(void)
+diff --git a/arch/x86/pci/common.c b/arch/x86/pci/common.c
+index fd1deab..d664695 100644
+--- a/arch/x86/pci/common.c
++++ b/arch/x86/pci/common.c
+@@ -88,6 +88,7 @@ static int __devinit can_skip_ioresource_align(const struct dmi_system_id *d)
+ }
+ 
+ static const struct dmi_system_id can_skip_pciprobe_dmi_table[] __devinitconst = {
++#ifdef CONFIG_DMI
+ /*
+  * Systems where PCI IO resource ISA alignment can be skipped
+  * when the ISA enable bit in the bridge control is not set
+@@ -117,6 +118,7 @@ static const struct dmi_system_id can_skip_pciprobe_dmi_table[] __devinitconst =
+ 		},
+ 	},
+ 	{}
++#endif
+ };
+ 
+ void __init dmi_check_skip_isa_align(void)
+@@ -184,6 +186,7 @@ static int __devinit assign_all_busses(const struct dmi_system_id *d)
+ #endif
+ 
+ static const struct dmi_system_id __devinitconst pciprobe_dmi_table[] = {
++#if CONFIG_DMI
+ #ifdef __i386__
+ /*
+  * Laptops which need pci=assign-busses to see Cardbus cards
+@@ -368,6 +371,7 @@ static const struct dmi_system_id __devinitconst pciprobe_dmi_table[] = {
+ 		},
+ 	},
+ 	{}
++#endif
+ };
+ 
+ void __init dmi_check_pciprobe(void)
+diff --git a/arch/x86/pci/fixup.c b/arch/x86/pci/fixup.c
+index 6dd8955..3c817b2 100644
+--- a/arch/x86/pci/fixup.c
++++ b/arch/x86/pci/fixup.c
+@@ -357,6 +357,7 @@ DECLARE_PCI_FIXUP_FINAL(PCI_ANY_ID, PCI_ANY_ID, pci_fixup_video);
+ 
+ 
+ static const struct dmi_system_id __devinitconst msi_k8t_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "MSI-K8T-Neo2Fir",
+ 		.matches = {
+@@ -365,6 +366,7 @@ static const struct dmi_system_id __devinitconst msi_k8t_dmi_table[] = {
+ 		},
+ 	},
+ 	{}
++#endif
+ };
+ 
+ /*
+@@ -414,6 +416,7 @@ DECLARE_PCI_FIXUP_RESUME(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_8237,
+ static u16 toshiba_line_size;
+ 
+ static const struct dmi_system_id __devinitconst toshiba_ohci1394_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Toshiba PS5 based laptop",
+ 		.matches = {
+@@ -436,6 +439,7 @@ static const struct dmi_system_id __devinitconst toshiba_ohci1394_dmi_table[] =
+ 		},
+ 	},
+ 	{ }
++#endif
+ };
+ 
+ static void __devinit pci_pre_fixup_toshiba_ohci1394(struct pci_dev *dev)
+diff --git a/arch/x86/pci/irq.c b/arch/x86/pci/irq.c
+index 9810a0f..730048e 100644
+--- a/arch/x86/pci/irq.c
++++ b/arch/x86/pci/irq.c
+@@ -1094,6 +1094,7 @@ static int __init fix_acer_tm360_irqrouting(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id __initdata pciirq_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.callback = fix_broken_hp_bios_irq9,
+ 		.ident = "HP Pavilion N5400 Series Laptop",
+@@ -1114,6 +1115,7 @@ static struct dmi_system_id __initdata pciirq_dmi_table[] = {
+ 		},
+ 	},
+ 	{ }
++#endif
+ };
+ 
+ void __init pcibios_irq_init(void)
+diff --git a/drivers/acpi/bus.c b/drivers/acpi/bus.c
+index a33fbc9..d146c05 100644
+--- a/drivers/acpi/bus.c
++++ b/drivers/acpi/bus.c
+@@ -60,12 +60,14 @@ static int set_power_nocheck(const struct dmi_system_id *id)
+ 	return 0;
+ }
+ static struct dmi_system_id __cpuinitdata power_nocheck_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 	set_power_nocheck, "HP Pavilion 05", {
+ 	DMI_MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies LTD"),
+ 	DMI_MATCH(DMI_SYS_VENDOR, "HP Pavilion 05"),
+ 	DMI_MATCH(DMI_PRODUCT_VERSION, "2001211RE101GLEND") }, NULL},
+ 	{},
++#endif
+ };
+ 
+ 
+@@ -79,6 +81,7 @@ static int set_copy_dsdt(const struct dmi_system_id *id)
+ }
+ 
+ static struct dmi_system_id dsdt_dmi_table[] __initdata = {
++#ifdef CONFIG_DMI
+ 	/*
+ 	 * Invoke DSDT corruption work-around on all Toshiba Satellite.
+ 	 * https://bugzilla.kernel.org/show_bug.cgi?id=14679
+@@ -92,6 +95,7 @@ static struct dmi_system_id dsdt_dmi_table[] __initdata = {
+ 		},
+ 	},
+ 	{}
++#endif
+ };
+ #else
+ static struct dmi_system_id dsdt_dmi_table[] __initdata = {
+diff --git a/drivers/acpi/ec.c b/drivers/acpi/ec.c
+index 5f2027d..bba6336 100644
+--- a/drivers/acpi/ec.c
++++ b/drivers/acpi/ec.c
+@@ -992,6 +992,7 @@ static int ec_flag_msi(const struct dmi_system_id *id)
+ }
+ 
+ static struct dmi_system_id __initdata ec_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 	ec_skip_dsdt_scan, "Compal JFL92", {
+ 	DMI_MATCH(DMI_BIOS_VENDOR, "COMPAL"),
+@@ -1009,6 +1010,7 @@ static struct dmi_system_id __initdata ec_dmi_table[] = {
+ 	ec_validate_ecdt, "ASUS hardware", {
+ 	DMI_MATCH(DMI_BIOS_VENDOR, "ASUS") }, NULL},
+ 	{},
++#endif
+ };
+ 
+ 
+diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
+index bec561c..84cb6cc 100644
+--- a/drivers/acpi/processor_core.c
++++ b/drivers/acpi/processor_core.c
+@@ -28,6 +28,7 @@ static int set_no_mwait(const struct dmi_system_id *id)
+ }
+ 
+ static struct dmi_system_id __cpuinitdata processor_idle_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 	set_no_mwait, "Extensa 5220", {
+ 	DMI_MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies LTD"),
+@@ -35,6 +36,7 @@ static struct dmi_system_id __cpuinitdata processor_idle_dmi_table[] = {
+ 	DMI_MATCH(DMI_PRODUCT_VERSION, "0100"),
+ 	DMI_MATCH(DMI_BOARD_NAME, "Columbia") }, NULL},
+ 	{},
++#endif
+ };
+ 
+ #ifdef CONFIG_SMP
+diff --git a/drivers/pci/pcie/portdrv_pci.c b/drivers/pci/pcie/portdrv_pci.c
+index 3debed2..3bec862 100644
+--- a/drivers/pci/pcie/portdrv_pci.c
++++ b/drivers/pci/pcie/portdrv_pci.c
+@@ -282,6 +282,7 @@ static int __init dmi_pcie_pme_disable_msi(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id __initdata pcie_portdrv_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	/*
+ 	 * Boxes that should not use MSI for PCIe PME signaling.
+ 	 */
+@@ -295,6 +296,7 @@ static struct dmi_system_id __initdata pcie_portdrv_dmi_table[] = {
+ 		     },
+ 	 },
+ 	 {}
++#endif
+ };
+ 
+ static int __init pcie_portdrv_init(void)
+-- 
+1.7.2.3
+

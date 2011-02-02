@@ -1,0 +1,24 @@
+From 6cf36787944ed9d6ba2e98dcf26ebf1e06c47b96 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Wed, 2 Feb 2011 18:53:49 +0100
+Subject: acpi: don't automatically select cpu_idle
+
+---
+ drivers/acpi/Kconfig |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
+index 7464115..c0b95cd 100644
+--- a/drivers/acpi/Kconfig
++++ b/drivers/acpi/Kconfig
+@@ -9,7 +9,6 @@ menuconfig ACPI
+ 	depends on PCI
+ 	depends on PM
+ 	select PNP
+-	select CPU_IDLE
+ 	default y
+ 	help
+ 	  Advanced Configuration and Power Interface (ACPI) support for 
+-- 
+1.7.2.3
+
