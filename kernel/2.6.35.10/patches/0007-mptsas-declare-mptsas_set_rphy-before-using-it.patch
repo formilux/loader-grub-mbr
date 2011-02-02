@@ -1,0 +1,67 @@
+From a912034af680e15483d10c813f536b3d41a2e9f0 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Wed, 2 Feb 2011 21:13:54 +0100
+Subject: mptsas: declare mptsas_set_rphy before using it
+
+Gcc 3.4 does not like to have the inlined body declared after using it.
+3.3 and 4.1 are OK though. It looks like this happens because of the size
+optim.
+---
+ drivers/message/fusion/mptsas.c |   34 +++++++++++++++++-----------------
+ 1 files changed, 17 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/message/fusion/mptsas.c b/drivers/message/fusion/mptsas.c
+index ac000e8..36b2d80 100644
+--- a/drivers/message/fusion/mptsas.c
++++ b/drivers/message/fusion/mptsas.c
+@@ -437,6 +437,23 @@ mptsas_is_end_device(struct mptsas_devinfo * attached)
+ 		return 0;
+ }
+ 
++static inline void
++mptsas_set_rphy(MPT_ADAPTER *ioc, struct mptsas_phyinfo *phy_info, struct sas_rphy *rphy)
++{
++	if (phy_info->port_details) {
++		phy_info->port_details->rphy = rphy;
++		dsaswideprintk(ioc, printk(MYIOC_s_DEBUG_FMT "sas_rphy_add: rphy=%p\n",
++		    ioc->name, rphy));
++	}
++
++	if (rphy) {
++		dsaswideprintk(ioc, dev_printk(KERN_DEBUG,
++		    &rphy->dev, MYIOC_s_FMT "add:", ioc->name));
++		dsaswideprintk(ioc, printk(MYIOC_s_DEBUG_FMT "rphy=%p release=%p\n",
++		    ioc->name, rphy, rphy->dev.release));
++	}
++}
++
+ /* no mutex */
+ static void
+ mptsas_port_delete(MPT_ADAPTER *ioc, struct mptsas_portinfo_details * port_details)
+@@ -475,23 +492,6 @@ mptsas_get_rphy(struct mptsas_phyinfo *phy_info)
+ 		return NULL;
+ }
+ 
+-static inline void
+-mptsas_set_rphy(MPT_ADAPTER *ioc, struct mptsas_phyinfo *phy_info, struct sas_rphy *rphy)
+-{
+-	if (phy_info->port_details) {
+-		phy_info->port_details->rphy = rphy;
+-		dsaswideprintk(ioc, printk(MYIOC_s_DEBUG_FMT "sas_rphy_add: rphy=%p\n",
+-		    ioc->name, rphy));
+-	}
+-
+-	if (rphy) {
+-		dsaswideprintk(ioc, dev_printk(KERN_DEBUG,
+-		    &rphy->dev, MYIOC_s_FMT "add:", ioc->name));
+-		dsaswideprintk(ioc, printk(MYIOC_s_DEBUG_FMT "rphy=%p release=%p\n",
+-		    ioc->name, rphy, rphy->dev.release));
+-	}
+-}
+-
+ static inline struct sas_port *
+ mptsas_get_port(struct mptsas_phyinfo *phy_info)
+ {
+-- 
+1.7.2.3
+
