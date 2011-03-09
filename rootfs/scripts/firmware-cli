@@ -10,7 +10,7 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
 # firmware version
-FW_VER=2.2
+FW_VER=3.0
 
 SERIAL_BAUD=115200
 DOWNLOAD_SAVE=N
