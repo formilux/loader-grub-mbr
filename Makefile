@@ -8,6 +8,8 @@ KVER          = 2.6.35.10
 GRUBVER       = 0.96
 GENE2FSVER    = 1.4
 
+SHELL 	      := /bin/bash
+
 CURDIR        := $(shell pwd)
 FINAL_DIR     := $(CURDIR)/image
 BUILD_DIR     := $(CURDIR)/build
@@ -294,7 +296,8 @@ $(BUILD_DIR)/tools/grub-$(GRUBVER)/.configured: $(BUILD_DIR)/tools/grub-$(GRUBVE
 	@echo "Configuring grub $(GRUBVER)..."
 	$(Q) ( \
 	  cd $(BUILD_DIR)/tools/grub-$(GRUBVER); \
-	  ./configure  --disable-fat --disable-ffs --disable-ufs2 --disable-minix \
+	  ./configure  \
+		       --disable-fat --disable-ffs --disable-ufs2 --disable-minix \
 	               --disable-reiserfs --disable-vstafs --disable-jfs --disable-xfs \
 	               --disable-iso9660 --disable-gunzip --disable-md5-password \
 	               --without-curses --disable-hercules --disable-serial \
@@ -321,7 +324,7 @@ $(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER)/.configured: $(BUILD_DIR)/tools/genex
 	@echo "Configuring genext2fs $(GENE2FSVER)..."
 	$(Q) ( \
 	  cd $(BUILD_DIR)/tools/genext2fs-$(GENE2FSVER); \
-	  ( [ -e configure ] || ./autogen.sh ) && ./configure \
+	 ( [ -e configure ] || ./autogen.sh ) && CC=$(cmd_kgcc)  ./configure --host=i386-linux \
 	)
 	$(Q) touch $@
 	@echo "  -> done."
