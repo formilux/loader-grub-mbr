@@ -182,6 +182,11 @@ $(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%-rack.img,$(SW_PLATFORMS)): \
   $(FINAL_DIR)/firmware-$(FWVER)-%-rack.img: $(KDIR)/output/firmware-$(FWVER)-%.img
 	ln -s $(patsubst $(KDIR)/output/%,%,$<) $@
 
+# serial variant: it is simply the same as the original with a different menu.lst
+$(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%-serial.img,$(SW_PLATFORMS)): \
+  $(FINAL_DIR)/firmware-$(FWVER)-%-serial.img: $(KDIR)/output/firmware-$(FWVER)-%.img
+	ln -s $(patsubst $(KDIR)/output/%,%,$<) $@
+
 $(patsubst %,$(FINAL_DIR)/firmware-$(FWVER)-%.img,$(SW_PLATFORMS)): \
   $(FINAL_DIR)/firmware-$(FWVER)-%.img: $(KDIR)/output/firmware-$(FWVER)-%.img
 
@@ -369,6 +374,12 @@ instimg: $(patsubst %,$(FINAL_DIR)/instimg-$(FWVER)-%.img,$(PLATFORMS))
 # derived from SW platforms. Report it without failing the whole process.
 $(patsubst %,$(FINAL_DIR)/instimg-$(FWVER)-%-rack.img,$(SW_PLATFORMS)): \
   $(FINAL_DIR)/instimg-$(FWVER)-%-rack.img:
+	@echo "Installation image for HW platform $(patsubst $(FINAL_DIR)/instimg-$(FWVER)-%.img,%,$@) will not be built."
+
+# Right now we cannot build installation images for HW platforms which are
+# derived from SW platforms. Report it without failing the whole process.
+$(patsubst %,$(FINAL_DIR)/instimg-$(FWVER)-%-serial.img,$(SW_PLATFORMS)): \
+  $(FINAL_DIR)/instimg-$(FWVER)-%-serial.img:
 	@echo "Installation image for HW platform $(patsubst $(FINAL_DIR)/instimg-$(FWVER)-%.img,%,$@) will not be built."
 
 $(patsubst %,$(FINAL_DIR)/instimg-$(FWVER)-%.img,$(SW_PLATFORMS)): \
