@@ -17,14 +17,14 @@ fallback 0 1 2
 title Image 1
    root (hd0,1)
    savedefault savemap
-   kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet ide0=noprobe ide1=noprobe panic=1 flash=sda2 img=active
+   kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet ide0=noprobe ide1=noprobe panic=1 flash=sda2 img=active vmm=vmware
    initrd /sys/active/initrd.img 
 
 # image 1
 title Image 2
    root (hd0,1)
    savedefault savemap
-   kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet ide0=noprobe ide1=noprobe panic=1 flash=sda2 img=backup
+   kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet ide0=noprobe ide1=noprobe panic=1 flash=sda2 img=backup vmm=vmware
    initrd /sys/backup/initrd.img 
 
 # image 2
