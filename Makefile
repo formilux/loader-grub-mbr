@@ -301,7 +301,8 @@ $(BUILD_DIR)/tools/grub-$(GRUBVER)/.configured: $(BUILD_DIR)/tools/grub-$(GRUBVE
 	@echo "Configuring grub $(GRUBVER)..."
 	$(Q) ( \
 	  cd $(BUILD_DIR)/tools/grub-$(GRUBVER); \
-	  ./configure  \
+	  CC=$(cmd_kgcc) \
+	  ./configure  --host=i586-linux-gnu \
 		       --disable-fat --disable-ffs --disable-ufs2 --disable-minix \
 	               --disable-reiserfs --disable-vstafs --disable-jfs --disable-xfs \
 	               --disable-iso9660 --disable-gunzip --disable-md5-password \
