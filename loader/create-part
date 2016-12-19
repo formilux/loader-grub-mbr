@@ -63,10 +63,10 @@ S=63
 P1C=2
 
 # partition 2 size in cylinders (DATA)
-P2C=49
+P2C=130
 
 # partition 3 size in cylinders (NVRAM)
-P3C=11
+P3C=64
 
 
 ### nothing to configure below ###
