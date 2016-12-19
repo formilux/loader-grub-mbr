@@ -1,0 +1,22 @@
+New format for firmware version 3.1
+
+=> unchanged for hardware partition
+   ~128 MB for software partition
+   ~64 MB for non-volatile partition
+   ~60 MB remain available for anything else on a 256 MB machine
+
+$ sfdisk -d bs31-gen.mbr
+# partition table of bs31-gen.mbr
+unit: sectors
+
+bs31-gen.mbr1 : start=       63, size=     3969, Id=83
+bs31-gen.mbr2 : start=     4032, size=   262080, Id=83
+bs31-gen.mbr3 : start=   266112, size=   129024, Id=83
+bs31-gen.mbr4 : start=        0, size=        0, Id= 0
+
+# disk: $CYL * 32H * 63S * 512B
+# rsrvd: C0,H0,S1   -> C0,H0,S63
+# part1: C0,H1,S1   -> C1,H31,S63   =>   2 cylinders total size
+# part2: C2,H0,S1   -> C131,H31,S63 => 130 cylinders total size
+# part3: C132,H0,S1 -> C195,H31,S63 =>  64 cylinders total size
+
