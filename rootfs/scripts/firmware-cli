@@ -764,7 +764,7 @@ do_menu_boot_image() {
       #fi
       # files have been kept in $_dir.
       do_inform "Loading image in memory..."
-      _kargs="$(cat $_dir/*/kernel.arg)"; _kargs="$(echo $_kargs|sed 's/console=[^ ]*[ ]*//')"
+      _kargs="$(cat $_dir/*/kernel.arg 2>&1)"; _kargs="$(echo $_kargs|sed 's/console=[^ ]*[ ]*//')"
       if ! kexec -l -c "$_kargs ${CONSOLE:+$CONSOLE }flash=${FLASH_PART##*/}${PEND_IMG:+ img=$PEND_IMG}" \
            -i "$(echo $_dir/*/initrd.img)" $_dir/*/kernel.img; then
         do_error "Failed to load image"
@@ -783,14 +783,14 @@ do_menu_boot_image() {
       mount -r $flash $FLASH_MNT >/dev/null 2>&1
       if [ $LINE = 2 ]; then     ### active image
         do_inform "Loading image 1 (active) in memory..."
-	_kargs="$(cat $FLASH_MNT/sys/active/kernel.arg)"; _kargs="$(echo $_kargs|sed 's/console=[^ ]*[ ]*//')"
+	_kargs="$(cat $FLASH_MNT/sys/active/kernel.arg 2>&1)"; _kargs="$(echo $_kargs|sed 's/console=[^ ]*[ ]*//')"
         kexec -l -c "$_kargs ${CONSOLE:+$CONSOLE }flash=${FLASH_PART##*/} img=active" -i "$(echo $FLASH_MNT/sys/active/initrd.img)" $FLASH_MNT/sys/active/kernel.img
 	err=$?
         # fake current boot to "active(retry)"
         grub-mbr-default -q $FLASH_MBR 2
       else
         do_inform "Loading image 2 (backup) in memory..."
-	_kargs="$(cat $FLASH_MNT/sys/backup/kernel.arg)"; _kargs="$(echo $_kargs|sed 's/console=[^ ]*[ ]*//')"
+	_kargs="$(cat $FLASH_MNT/sys/backup/kernel.arg 2>&1)"; _kargs="$(echo $_kargs|sed 's/console=[^ ]*[ ]*//')"
         kexec -l -c "$_kargs ${CONSOLE:+$CONSOLE }flash=${FLASH_PART##*/} img=backup" -i "$(echo $FLASH_MNT/sys/backup/initrd.img)" $FLASH_MNT/sys/backup/kernel.img
 	err=$?
         # fake current boot as "backup(retry)"
@@ -1005,7 +1005,7 @@ find_flash() {
   fi
 
   if [ -z "$FLASH_SW" ]; then
-    flash="$(cat /proc/cmdline)"
+    flash="$(cat /proc/cmdline 2>&1)"
     if [ -n "${flash##*flash=*}" ]; then
       [ -z "$QUIET" ] && echo "No flash device specified in /proc/cmdline."
       return 1
@@ -1042,7 +1042,7 @@ init_flash_from_cmdline() {
 }
 
 init_console_from_cmdline() {
-  CONSOLE="$(cat /proc/cmdline|sed -ne 's/^\(.*\)\(console=[^ ]*\)\(.*\)/\2/p')"
+  CONSOLE="$(cat /proc/cmdline 2>&1 |sed -ne 's/^\(.*\)\(console=[^ ]*\)\(.*\)/\2/p')"
 }
 
 ########### main ###########
