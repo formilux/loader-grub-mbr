@@ -1045,11 +1045,16 @@ init_console_from_cmdline() {
   CONSOLE="$(cat /proc/cmdline 2>&1 |sed -ne 's/^\(.*\)\(console=[^ ]*\)\(.*\)/\2/p')"
 }
 
+init_quiet_from_cmdline() {
+  QUIET="$(sed -ne 's/.*\(^\|[ ]\)\(quiet\)\b.*/\2/p' /proc/cmdline 2>/dev/null)"
+}
+
 ########### main ###########
 
 (clear; chvt 2; chvt 1) 2>/dev/null
 do_inform " --- Firmware utility version $FW_VER --- "
 
+init_quiet_from_cmdline
 init_console_from_cmdline
 init_flash_from_cmdline
 
