@@ -1,0 +1,191 @@
+From b5b89891b143a13aaf7d48828aac4ddf33495297 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Mon, 19 Dec 2016 16:57:29 +0100
+Subject: [PATCH 05/13] net: make tcp fastopen configurable
+
+This also allows to build without crypto and without AES, and saves
+20 kB on an xz-compressed kernel.
+---
+ net/Kconfig                |  2 --
+ net/ipv4/Kconfig           | 10 ++++++++++
+ net/ipv4/Makefile          |  3 ++-
+ net/ipv4/af_inet.c         |  2 ++
+ net/ipv4/sysctl_net_ipv4.c |  4 ++++
+ net/ipv4/tcp.c             |  4 ++++
+ net/ipv4/tcp_ipv4.c        |  2 ++
+ net/ipv4/tcp_output.c      |  4 ++++
+ 8 files changed, 28 insertions(+), 3 deletions(-)
+
+diff --git a/net/Kconfig b/net/Kconfig
+index 2ddc904..f755e2f 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -52,8 +52,6 @@ source "net/iucv/Kconfig"
+ 
+ config INET
+ 	bool "TCP/IP networking"
+-	select CRYPTO
+-	select CRYPTO_AES
+ 	---help---
+ 	  These are the protocols used on the Internet and on most local
+ 	  Ethernets. It is highly recommended to say Y here (this will enlarge
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 8603ca8..f25011f 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -639,3 +639,13 @@ config TCP_MD5SIG
+ 	  on the Internet.
+ 
+ 	  If unsure, say N.
++
++config TCP_FASTOPEN
++	bool "TCP: Fast Open support"
++	select CRYPTO
++	select CRYPTO_AES
++	default y
++	---help---
++	  This enables TCP Fast Open.
++
++	  If unsure, say Y.
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index 49da58d..34cd4d9 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -7,12 +7,13 @@ obj-y     := route.o inetpeer.o protocol.o \
+ 	     ip_output.o ip_sockglue.o inet_hashtables.o \
+ 	     inet_timewait_sock.o inet_connection_sock.o \
+ 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
+-	     tcp_minisocks.o tcp_cong.o tcp_metrics.o tcp_fastopen.o \
++	     tcp_minisocks.o tcp_cong.o tcp_metrics.o \
+ 	     datagram.o raw.o udp.o udplite.o \
+ 	     arp.o icmp.o devinet.o af_inet.o  igmp.o \
+ 	     fib_frontend.o fib_semantics.o fib_trie.o \
+ 	     inet_fragment.o ping.o
+ 
++obj-$(CONFIG_TCP_FASTOPEN) += tcp_fastopen.o
+ obj-$(CONFIG_NET_IP_TUNNEL) += ip_tunnel.o
+ obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
+ obj-$(CONFIG_PROC_NET_IPV4) += proc.o
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 6017ee9..eaab3ba 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -219,6 +219,7 @@ int inet_listen(struct socket *sock, int backlog)
+ 		 * socket was in TCP_LISTEN state previously but was
+ 		 * shutdown() (rather than close()).
+ 		 */
++#ifdef CONFIG_TCP_FASTOPEN
+ 		if ((sysctl_tcp_fastopen & TFO_SERVER_ENABLE) != 0 &&
+ 		    inet_csk(sk)->icsk_accept_queue.fastopenq == NULL) {
+ 			if ((sysctl_tcp_fastopen & TFO_SERVER_WO_SOCKOPT1) != 0)
+@@ -232,6 +233,7 @@ int inet_listen(struct socket *sock, int backlog)
+ 			if (err)
+ 				goto out;
+ 		}
++#endif
+ 		err = inet_csk_listen_start(sk, backlog);
+ 		if (err)
+ 			goto out;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 90b26be..1795043 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -236,6 +236,7 @@ static int ipv4_tcp_mem(ctl_table *ctl, int write,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_TCP_FASTOPEN
+ static int proc_tcp_fastopen_key(ctl_table *ctl, int write, void __user *buffer,
+ 				 size_t *lenp, loff_t *ppos)
+ {
+@@ -276,6 +277,7 @@ bad_key:
+ 	kfree(tbl.data);
+ 	return ret;
+ }
++#endif
+ 
+ static struct ctl_table ipv4_table[] = {
+ 	{
+@@ -425,6 +427,7 @@ static struct ctl_table ipv4_table[] = {
+ 		.proc_handler	= proc_dointvec
+ 	},
+ #endif
++#ifdef CONFIG_TCP_FASTOPEN
+ 	{
+ 		.procname	= "tcp_fastopen",
+ 		.data		= &sysctl_tcp_fastopen,
+@@ -438,6 +441,7 @@ static struct ctl_table ipv4_table[] = {
+ 		.maxlen		= ((TCP_FASTOPEN_KEY_LENGTH * 2) + 10),
+ 		.proc_handler	= proc_tcp_fastopen_key,
+ 	},
++#endif
+ 	{
+ 		.procname	= "tcp_tw_recycle",
+ 		.data		= &tcp_death_row.sysctl_tw_recycle,
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 5d4bd6c..ac0fe0b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1004,6 +1004,7 @@ void tcp_free_fastopen_req(struct tcp_sock *tp)
+ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
+ 				int *copied, size_t size)
+ {
++#ifdef CONFIG_TCP_FASTOPEN
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int err, flags;
+ 
+@@ -1025,6 +1026,9 @@ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
+ 	*copied = tp->fastopen_req->copied;
+ 	tcp_free_fastopen_req(tp);
+ 	return err;
++#else
++	return -EOPNOTSUPP;
++#endif
+ }
+ 
+ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 11f27a4..6df250a 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1294,6 +1294,7 @@ static bool tcp_fastopen_check(struct sock *sk, struct sk_buff *skb,
+ 			       struct tcp_fastopen_cookie *foc,
+ 			       struct tcp_fastopen_cookie *valid_foc)
+ {
++#ifdef CONFIG_TCP_FASTOPEN
+ 	bool skip_cookie = false;
+ 	struct fastopen_queue *fastopenq;
+ 
+@@ -1367,6 +1368,7 @@ static bool tcp_fastopen_check(struct sock *sk, struct sk_buff *skb,
+ 		 */
+ 		tcp_fastopen_cookie_gen(ip_hdr(skb)->saddr, valid_foc);
+ 	}
++#endif
+ 	return false;
+ }
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 276b283..f536155 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2898,6 +2898,7 @@ static void tcp_connect_queue_skb(struct sock *sk, struct sk_buff *skb)
+  */
+ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
+ {
++#ifdef CONFIG_TCP_FASTOPEN
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct tcp_fastopen_request *fo = tp->fastopen_req;
+ 	int syn_loss = 0, space, err = 0;
+@@ -2977,6 +2978,9 @@ fallback:
+ done:
+ 	fo->cookie.len = -1;  /* Exclude Fast Open option for SYN retries */
+ 	return err;
++#else
++	return -EOPNOTSUPP;
++#endif
+ }
+ 
+ /* Build a SYN and send it off. */
+-- 
+1.7.12.1
+

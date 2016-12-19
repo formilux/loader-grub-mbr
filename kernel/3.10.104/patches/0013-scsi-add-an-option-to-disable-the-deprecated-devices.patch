@@ -1,0 +1,56 @@
+From 339343f0c80a30355c45a6331714ae997d8915ab Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Mon, 19 Dec 2016 23:28:26 +0100
+Subject: [PATCH 13/13] scsi: add an option to disable the deprecated devices
+ list
+
+There's even a comment suggesting not to use it anymore and that it will
+eventually go away. Let's add an option to do that right now. It saves
+2 kB to the xz-compressed image.
+---
+ drivers/scsi/Kconfig        | 8 ++++++++
+ drivers/scsi/scsi_devinfo.c | 2 ++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/drivers/scsi/Kconfig b/drivers/scsi/Kconfig
+index 1348fa4..1b00726 100644
+--- a/drivers/scsi/Kconfig
++++ b/drivers/scsi/Kconfig
+@@ -40,6 +40,14 @@ config SCSI_DMA
+ 	bool
+ 	default n
+ 
++config SCSI_DEPRECATED
++	bool "SCSI support for old, deprecated devices"
++	default y
++	depends on SCSI
++	---help---
++	  Say Y if you want to enable support for old deprecated devices. This
++	  is the default and adds about 2kB to the kernel.
++
+ config SCSI_TGT
+ 	tristate "SCSI target support"
+ 	depends on SCSI
+diff --git a/drivers/scsi/scsi_devinfo.c b/drivers/scsi/scsi_devinfo.c
+index 43fca91..5e46d79 100644
+--- a/drivers/scsi/scsi_devinfo.c
++++ b/drivers/scsi/scsi_devinfo.c
+@@ -53,6 +53,7 @@ static struct {
+ 	char *revision;	/* revision known to be bad, unused */
+ 	unsigned flags;
+ } scsi_static_device_list[] __initdata = {
++#ifdef CONFIG_SCSI_DEPRECATED
+ 	/*
+ 	 * The following devices are known not to tolerate a lun != 0 scan
+ 	 * for one reason or another. Some will respond to all luns,
+@@ -254,6 +255,7 @@ static struct {
+ 	{"XYRATEX", "RS", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+ 	{"Zzyzx", "RocketStor 500S", NULL, BLIST_SPARSELUN},
+ 	{"Zzyzx", "RocketStor 2000", NULL, BLIST_SPARSELUN},
++#endif
+ 	{ NULL, NULL, NULL, 0 },
+ };
+ 
+-- 
+1.7.12.1
+

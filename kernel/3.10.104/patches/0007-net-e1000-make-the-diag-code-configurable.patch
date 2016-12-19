@@ -1,0 +1,78 @@
+From 1469d0358352b6469af9cdaa3fd782e031e003d9 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Mon, 19 Dec 2016 17:24:29 +0100
+Subject: [PATCH 07/13] net: e1000: make the diag code configurable
+
+By disabling it, it's possible to save 2kB in the compressed image.
+---
+ drivers/net/ethernet/intel/Kconfig               | 7 +++++++
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 6 ++++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 05f7264..4344c94 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -65,6 +65,13 @@ config E1000
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called e1000.
+ 
++config E1000_DIAG
++	bool "Intel(R) PRO/1000 diag support"
++	default y
++	depends on E1000
++	---help---
++	  Say Y if you want to enable the ethtool diag in the e1000 driver (+6kB).
++
+ config E1000E
+ 	tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support"
+ 	depends on PCI && (!SPARC32 || BROKEN)
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+index 82a967c..6a92351 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+@@ -676,6 +676,7 @@ err_setup:
+ 	return err;
+ }
+ 
++#ifdef CONFIG_E1000_DIAG
+ static bool reg_pattern_test(struct e1000_adapter *adapter, u64 *data, int reg,
+ 			     u32 mask, u32 write)
+ {
+@@ -1520,6 +1521,7 @@ static int e1000_link_test(struct e1000_adapter *adapter, u64 *data)
+ 	}
+ 	return *data;
+ }
++#endif
+ 
+ static int e1000_get_sset_count(struct net_device *netdev, int sset)
+ {
+@@ -1533,6 +1535,7 @@ static int e1000_get_sset_count(struct net_device *netdev, int sset)
+ 	}
+ }
+ 
++#ifdef CONFIG_E1000_DIAG
+ static void e1000_diag_test(struct net_device *netdev,
+ 			    struct ethtool_test *eth_test, u64 *data)
+ {
+@@ -1605,6 +1608,7 @@ static void e1000_diag_test(struct net_device *netdev,
+ 	}
+ 	msleep_interruptible(4 * 1000);
+ }
++#endif
+ 
+ static int e1000_wol_exclusion(struct e1000_adapter *adapter,
+ 			       struct ethtool_wolinfo *wol)
+@@ -1893,7 +1897,9 @@ static const struct ethtool_ops e1000_ethtool_ops = {
+ 	.set_ringparam		= e1000_set_ringparam,
+ 	.get_pauseparam		= e1000_get_pauseparam,
+ 	.set_pauseparam		= e1000_set_pauseparam,
++#ifdef CONFIG_E1000_DIAG
+ 	.self_test		= e1000_diag_test,
++#endif
+ 	.get_strings		= e1000_get_strings,
+ 	.set_phys_id		= e1000_set_phys_id,
+ 	.get_ethtool_stats	= e1000_get_ethtool_stats,
+-- 
+1.7.12.1
+

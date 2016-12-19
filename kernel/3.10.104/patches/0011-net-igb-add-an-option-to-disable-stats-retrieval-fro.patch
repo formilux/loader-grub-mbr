@@ -1,0 +1,90 @@
+From f338c245f1a57591e9c65ee7827b38aa93b5d0e6 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Mon, 19 Dec 2016 23:14:02 +0100
+Subject: [PATCH 11/13] net: igb: add an option to disable stats retrieval
+ from the NIC
+
+This is only used by ethtool -S and most of the time in embedded
+devices we don't care. It saves 2kB on the xz-compressed image.
+---
+ drivers/net/ethernet/intel/Kconfig           | 7 +++++++
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 6 ++++++
+ drivers/net/ethernet/intel/igb/igb_main.c    | 2 ++
+ 3 files changed, 15 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 1cf8e91..c57ca7f 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -131,6 +131,13 @@ config IGB_DIAG
+ 	---help---
+ 	  Say Y if you want to enable the ethtool diag in the igb driver (+2kB).
+ 
++config IGB_STATS
++	bool "Intel(R) PCI-Express Gigabit adapters stats support"
++	default y
++	depends on IGB
++	---help---
++	  Say Y if you want to enable the ethtool stats in the igb driver (+2kB).
++
+ config IGB_HWMON
+ 	bool "Intel(R) PCI-Express Gigabit adapters HWMON support"
+ 	default y
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index cd6af7a..70d7c6b 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2222,6 +2222,7 @@ static int igb_get_sset_count(struct net_device *netdev, int sset)
+ 	}
+ }
+ 
++#ifdef CONFIG_IGB_STATS
+ static void igb_get_ethtool_stats(struct net_device *netdev,
+ 				  struct ethtool_stats *stats, u64 *data)
+ {
+@@ -2324,6 +2325,7 @@ static void igb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ 		break;
+ 	}
+ }
++#endif
+ 
+ static int igb_get_ts_info(struct net_device *dev,
+ 			   struct ethtool_ts_info *info)
+@@ -2799,10 +2801,14 @@ static const struct ethtool_ops igb_ethtool_ops = {
+ #ifdef CONFIG_IGB_DIAG
+ 	.self_test		= igb_diag_test,
+ #endif
++#ifdef CONFIG_IGB_STATS
+ 	.get_strings		= igb_get_strings,
++#endif
+ 	.set_phys_id		= igb_set_phys_id,
+ 	.get_sset_count		= igb_get_sset_count,
++#ifdef CONFIG_IGB_STATS
+ 	.get_ethtool_stats	= igb_get_ethtool_stats,
++#endif
+ 	.get_coalesce		= igb_get_coalesce,
+ 	.set_coalesce		= igb_set_coalesce,
+ 	.get_ts_info		= igb_get_ts_info,
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 3f342fb..3f11ab3 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -4844,6 +4844,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
+ void igb_update_stats(struct igb_adapter *adapter,
+ 		      struct rtnl_link_stats64 *net_stats)
+ {
++#ifdef CONFIG_IGB_STATS
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	u32 reg, mpc;
+@@ -5032,6 +5033,7 @@ void igb_update_stats(struct igb_adapter *adapter,
+ 		adapter->stats.b2ospc += rd32(E1000_B2OSPC);
+ 		adapter->stats.b2ogprc += rd32(E1000_B2OGPRC);
+ 	}
++#endif
+ }
+ 
+ static irqreturn_t igb_msix_other(int irq, void *data)
+-- 
+1.7.12.1
+

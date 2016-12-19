@@ -1,0 +1,1081 @@
+From f0f87c48a1d2e5ff6b9ac8efa111feb5f3d0ce89 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Wed, 2 Feb 2011 20:20:43 +0100
+Subject: [PATCH 04/13] dmi: remove dmi tables when CONFIG_DMI is not set
+
+This saves several kB of image and 1-2 kB in the compressed image.
+
+[wt: port to 3.10 adds many other locations]
+---
+ arch/x86/kernel/acpi/boot.c            | 4 ++++
+ arch/x86/kernel/apic/apic.c            | 2 ++
+ arch/x86/kernel/apic/bigsmp_32.c       | 2 ++
+ arch/x86/kernel/apm_32.c               | 3 ++-
+ arch/x86/kernel/io_delay.c             | 2 ++
+ arch/x86/kernel/mmconf-fam10h_64.c     | 2 ++
+ arch/x86/kernel/reboot.c               | 2 ++
+ arch/x86/pci/common.c                  | 4 ++++
+ arch/x86/pci/fixup.c                   | 4 ++++
+ arch/x86/pci/irq.c                     | 2 ++
+ drivers/acpi/bus.c                     | 2 ++
+ drivers/acpi/ec.c                      | 2 ++
+ drivers/acpi/pci_slot.c                | 2 ++
+ drivers/acpi/processor_core.c          | 2 ++
+ drivers/acpi/processor_idle.c          | 2 ++
+ drivers/acpi/sleep.c                   | 2 ++
+ drivers/acpi/thermal.c                 | 2 ++
+ drivers/acpi/video.c                   | 2 ++
+ drivers/acpi/video_detect.c            | 2 ++
+ drivers/ata/pata_ali.c                 | 2 ++
+ drivers/ata/pata_atiixp.c              | 2 ++
+ drivers/ata/pata_cs5530.c              | 2 ++
+ drivers/ata/pata_cs5536.c              | 2 ++
+ drivers/ata/pata_via.c                 | 4 ++++
+ drivers/char/i8k.c                     | 2 ++
+ drivers/char/sonypi.c                  | 2 ++
+ drivers/cpufreq/acpi-cpufreq.c         | 2 ++
+ drivers/cpufreq/powernow-k7.c          | 2 ++
+ drivers/hwmon/acpi_power_meter.c       | 2 ++
+ drivers/i2c/busses/i2c-i801.c          | 2 ++
+ drivers/ide/alim15x3.c                 | 2 ++
+ drivers/ide/via82cxxx.c                | 2 ++
+ drivers/input/mouse/lifebook.c         | 2 ++
+ drivers/input/touchscreen/htcpen.c     | 2 ++
+ drivers/leds/leds-clevo-mail.c         | 2 ++
+ drivers/net/ethernet/via/via-rhine.c   | 2 ++
+ drivers/pci/pcie/portdrv_pci.c         | 2 ++
+ drivers/platform/x86/acer-wmi.c        | 2 ++
+ drivers/platform/x86/chromeos_laptop.c | 2 ++
+ drivers/platform/x86/compal-laptop.c   | 2 ++
+ drivers/platform/x86/fujitsu-laptop.c  | 2 ++
+ drivers/platform/x86/ibm_rtl.c         | 2 ++
+ drivers/platform/x86/intel_oaktrail.c  | 2 ++
+ drivers/platform/x86/msi-laptop.c      | 2 ++
+ drivers/platform/x86/samsung-laptop.c  | 2 ++
+ drivers/platform/x86/samsung-q10.c     | 2 ++
+ drivers/platform/x86/sony-laptop.c     | 2 ++
+ drivers/pnp/pnpbios/core.c             | 2 ++
+ 48 files changed, 104 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/kernel/acpi/boot.c b/arch/x86/kernel/acpi/boot.c
+index 230c8ea..ab5024d 100644
+--- a/arch/x86/kernel/acpi/boot.c
++++ b/arch/x86/kernel/acpi/boot.c
+@@ -1362,6 +1362,7 @@ static int __init dmi_ignore_irq0_timer_override(const struct dmi_system_id *d)
+  * works for you, please contact linux-acpi@vger.kernel.org
+  */
+ static struct dmi_system_id __initdata acpi_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	/*
+ 	 * Boxes that need ACPI disabled
+ 	 */
+@@ -1432,11 +1433,13 @@ static struct dmi_system_id __initdata acpi_dmi_table[] = {
+ 		     DMI_MATCH(DMI_PRODUCT_NAME, "TravelMate 360"),
+ 		     },
+ 	 },
++#endif
+ 	{}
+ };
+ 
+ /* second table for DMI checks that should run after early-quirks */
+ static struct dmi_system_id __initdata acpi_dmi_table_late[] = {
++#ifdef CONFIG_DMI
+ 	/*
+ 	 * HP laptops which use a DSDT reporting as HP/SB400/10000,
+ 	 * which includes some code which overrides all temperature
+@@ -1487,6 +1490,7 @@ static struct dmi_system_id __initdata acpi_dmi_table_late[] = {
+ 		     DMI_MATCH(DMI_PRODUCT_NAME, "AMILO PRO V2030"),
+ 		     },
+ 	 },
++#endif
+ 	{}
+ };
+ 
+diff --git a/arch/x86/kernel/apic/apic.c b/arch/x86/kernel/apic/apic.c
+index 9620d18..6ac217d 100644
+--- a/arch/x86/kernel/apic/apic.c
++++ b/arch/x86/kernel/apic/apic.c
+@@ -2422,6 +2422,7 @@ static int __cpuinit set_multi(const struct dmi_system_id *d)
+ }
+ 
+ static const __cpuinitconst struct dmi_system_id multi_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.callback = set_multi,
+ 		.ident = "IBM System Summit2",
+@@ -2430,6 +2431,7 @@ static const __cpuinitconst struct dmi_system_id multi_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "Summit2"),
+ 		},
+ 	},
++#endif
+ 	{}
+ };
+ 
+diff --git a/arch/x86/kernel/apic/bigsmp_32.c b/arch/x86/kernel/apic/bigsmp_32.c
+index d50e364..29a12de 100644
+--- a/arch/x86/kernel/apic/bigsmp_32.c
++++ b/arch/x86/kernel/apic/bigsmp_32.c
+@@ -128,6 +128,7 @@ static int hp_ht_bigsmp(const struct dmi_system_id *d)
+ 
+ 
+ static const struct dmi_system_id bigsmp_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{ hp_ht_bigsmp, "HP ProLiant DL760 G2",
+ 		{	DMI_MATCH(DMI_BIOS_VENDOR, "HP"),
+ 			DMI_MATCH(DMI_BIOS_VERSION, "P44-"),
+@@ -139,6 +140,7 @@ static const struct dmi_system_id bigsmp_dmi_table[] = {
+ 			DMI_MATCH(DMI_BIOS_VERSION, "P47-"),
+ 		}
+ 	},
++#endif
+ 	{ } /* NULL entry stops DMI scanning */
+ };
+ 
+diff --git a/arch/x86/kernel/apm_32.c b/arch/x86/kernel/apm_32.c
+index 3ab0343..25b168b 100644
+--- a/arch/x86/kernel/apm_32.c
++++ b/arch/x86/kernel/apm_32.c
+@@ -2053,6 +2053,7 @@ static int __init swab_apm_power_in_minutes(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id __initdata apm_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		print_if_true,
+ 		KERN_WARNING "IBM T23 - BIOS 1.03b+ and controller firmware 1.02+ may be needed for Linux APM.",
+@@ -2259,7 +2260,7 @@ static struct dmi_system_id __initdata apm_dmi_table[] = {
+ 		set_apm_ints, "IBM",
+ 		{	DMI_MATCH(DMI_SYS_VENDOR, "IBM"), },
+ 	},
+-
++#endif
+ 	{ }
+ };
+ 
+diff --git a/arch/x86/kernel/io_delay.c b/arch/x86/kernel/io_delay.c
+index a979b5b..c1bdf66 100644
+--- a/arch/x86/kernel/io_delay.c
++++ b/arch/x86/kernel/io_delay.c
+@@ -59,6 +59,7 @@ static int __init dmi_io_delay_0xed_port(const struct dmi_system_id *id)
+  * 0x80 is used:
+  */
+ static struct dmi_system_id __initdata io_delay_0xed_port_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.callback	= dmi_io_delay_0xed_port,
+ 		.ident		= "Compaq Presario V6000",
+@@ -99,6 +100,7 @@ static struct dmi_system_id __initdata io_delay_0xed_port_dmi_table[] = {
+ 			DMI_MATCH(DMI_BOARD_NAME,	"30D3")
+ 		}
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/arch/x86/kernel/mmconf-fam10h_64.c b/arch/x86/kernel/mmconf-fam10h_64.c
+index ac861b8..5efdf3a 100644
+--- a/arch/x86/kernel/mmconf-fam10h_64.c
++++ b/arch/x86/kernel/mmconf-fam10h_64.c
+@@ -220,6 +220,7 @@ static int __init set_check_enable_amd_mmconf(const struct dmi_system_id *d)
+ }
+ 
+ static const struct dmi_system_id __initconst mmconf_dmi_table[] = {
++#ifdef CONFIG_DMI
+         {
+                 .callback = set_check_enable_amd_mmconf,
+                 .ident = "Sun Microsystems Machine",
+@@ -227,6 +228,7 @@ static const struct dmi_system_id __initconst mmconf_dmi_table[] = {
+                         DMI_MATCH(DMI_SYS_VENDOR, "Sun Microsystems"),
+                 },
+         },
++#endif
+ 	{}
+ };
+ 
+diff --git a/arch/x86/kernel/reboot.c b/arch/x86/kernel/reboot.c
+index abfc89b..855be16 100644
+--- a/arch/x86/kernel/reboot.c
++++ b/arch/x86/kernel/reboot.c
+@@ -225,6 +225,7 @@ static int __init set_kbd_reboot(const struct dmi_system_id *d)
+  * This is a single dmi_table handling all reboot quirks.
+  */
+ static struct dmi_system_id __initdata reboot_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{	/* Handle problems with rebooting on Dell E520's */
+ 		.callback = set_bios_reboot,
+ 		.ident = "Dell E520",
+@@ -471,6 +472,7 @@ static struct dmi_system_id __initdata reboot_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "C6100"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/arch/x86/pci/common.c b/arch/x86/pci/common.c
+index 88f143d..a8df69a 100644
+--- a/arch/x86/pci/common.c
++++ b/arch/x86/pci/common.c
+@@ -89,6 +89,7 @@ static int can_skip_ioresource_align(const struct dmi_system_id *d)
+ }
+ 
+ static const struct dmi_system_id can_skip_pciprobe_dmi_table[] = {
++#ifdef CONFIG_DMI
+ /*
+  * Systems where PCI IO resource ISA alignment can be skipped
+  * when the ISA enable bit in the bridge control is not set
+@@ -117,6 +118,7 @@ static const struct dmi_system_id can_skip_pciprobe_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "x3950"),
+ 		},
+ 	},
++#endif
+ 	{}
+ };
+ 
+@@ -250,6 +252,7 @@ static int set_scan_all(const struct dmi_system_id *d)
+ }
+ 
+ static const struct dmi_system_id pciprobe_dmi_table[] = {
++#ifdef CONFIG_DMI
+ #ifdef __i386__
+ /*
+  * Laptops which need pci=assign-busses to see Cardbus cards
+@@ -464,6 +467,7 @@ static const struct dmi_system_id pciprobe_dmi_table[] = {
+                         DMI_MATCH(DMI_PRODUCT_NAME, "Express5800/R31"),
+                 },
+         },
++#endif
+ 	{}
+ };
+ 
+diff --git a/arch/x86/pci/fixup.c b/arch/x86/pci/fixup.c
+index f5809fa..96f074c 100644
+--- a/arch/x86/pci/fixup.c
++++ b/arch/x86/pci/fixup.c
+@@ -358,6 +358,7 @@ DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_ANY_ID, PCI_ANY_ID,
+ 
+ 
+ static const struct dmi_system_id msi_k8t_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "MSI-K8T-Neo2Fir",
+ 		.matches = {
+@@ -365,6 +366,7 @@ static const struct dmi_system_id msi_k8t_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "MS-6702E"),
+ 		},
+ 	},
++#endif
+ 	{}
+ };
+ 
+@@ -415,6 +417,7 @@ DECLARE_PCI_FIXUP_RESUME(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_8237,
+ static u16 toshiba_line_size;
+ 
+ static const struct dmi_system_id toshiba_ohci1394_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Toshiba PS5 based laptop",
+ 		.matches = {
+@@ -436,6 +439,7 @@ static const struct dmi_system_id toshiba_ohci1394_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_VERSION, "PSA40U"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/arch/x86/pci/irq.c b/arch/x86/pci/irq.c
+index 372e9b8..ae97a4f 100644
+--- a/arch/x86/pci/irq.c
++++ b/arch/x86/pci/irq.c
+@@ -1095,6 +1095,7 @@ static int __init fix_acer_tm360_irqrouting(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id __initdata pciirq_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.callback = fix_broken_hp_bios_irq9,
+ 		.ident = "HP Pavilion N5400 Series Laptop",
+@@ -1114,6 +1115,7 @@ static struct dmi_system_id __initdata pciirq_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "TravelMate 360"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/acpi/bus.c b/drivers/acpi/bus.c
+index b62207a..bc6762e 100644
+--- a/drivers/acpi/bus.c
++++ b/drivers/acpi/bus.c
+@@ -73,6 +73,7 @@ static int set_copy_dsdt(const struct dmi_system_id *id)
+ #endif
+ 
+ static struct dmi_system_id dsdt_dmi_table[] __initdata = {
++#ifdef CONFIG_DMI
+ 	/*
+ 	 * Invoke DSDT corruption work-around on all Toshiba Satellite.
+ 	 * https://bugzilla.kernel.org/show_bug.cgi?id=14679
+@@ -85,6 +86,7 @@ static struct dmi_system_id dsdt_dmi_table[] __initdata = {
+ 		DMI_MATCH(DMI_PRODUCT_NAME, "Satellite"),
+ 		},
+ 	},
++#endif
+ 	{}
+ };
+ #else
+diff --git a/drivers/acpi/ec.c b/drivers/acpi/ec.c
+index 1ad5a4f..c213758 100644
+--- a/drivers/acpi/ec.c
++++ b/drivers/acpi/ec.c
+@@ -950,6 +950,7 @@ static int ec_enlarge_storm_threshold(const struct dmi_system_id *id)
+ }
+ 
+ static struct dmi_system_id __initdata ec_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 	ec_skip_dsdt_scan, "Compal JFL92", {
+ 	DMI_MATCH(DMI_BIOS_VENDOR, "COMPAL"),
+@@ -992,6 +993,7 @@ static struct dmi_system_id __initdata ec_dmi_table[] = {
+ 	ec_validate_ecdt, "ASUS hardware", {
+ 	DMI_MATCH(DMI_SYS_VENDOR, "ASUSTek Computer Inc."),
+ 	DMI_MATCH(DMI_PRODUCT_NAME, "L4R"),}, NULL},
++#endif
+ 	{},
+ };
+ 
+diff --git a/drivers/acpi/pci_slot.c b/drivers/acpi/pci_slot.c
+index 033d117..be63b68 100644
+--- a/drivers/acpi/pci_slot.c
++++ b/drivers/acpi/pci_slot.c
+@@ -191,6 +191,7 @@ static int do_sta_before_sun(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id acpi_pci_slot_dmi_table[] __initdata = {
++#ifdef CONFIG_DMI
+ 	/*
+ 	 * Fujitsu Primequest machines will return 1023 to indicate an
+ 	 * error if the _SUN method is evaluated on SxFy objects that
+@@ -205,6 +206,7 @@ static struct dmi_system_id acpi_pci_slot_dmi_table[] __initdata = {
+ 		DMI_MATCH(DMI_BIOS_VERSION, "PRIMEQUEST"),
+ 		},
+ 	},
++#endif
+ 	{}
+ };
+ 
+diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
+index 164d495..ee94aec 100644
+--- a/drivers/acpi/processor_core.c
++++ b/drivers/acpi/processor_core.c
+@@ -29,12 +29,14 @@ static int __init set_no_mwait(const struct dmi_system_id *id)
+ }
+ 
+ static struct dmi_system_id __initdata processor_idle_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 	set_no_mwait, "Extensa 5220", {
+ 	DMI_MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies LTD"),
+ 	DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
+ 	DMI_MATCH(DMI_PRODUCT_VERSION, "0100"),
+ 	DMI_MATCH(DMI_BOARD_NAME, "Columbia") }, NULL},
++#endif
+ 	{},
+ };
+ 
+diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
+index c991fe68..4433676 100644
+--- a/drivers/acpi/processor_idle.c
++++ b/drivers/acpi/processor_idle.c
+@@ -99,6 +99,7 @@ static int set_max_cstate(const struct dmi_system_id *id)
+ /* Actually this shouldn't be __cpuinitdata, would be better to fix the
+    callers to only run once -AK */
+ static struct dmi_system_id __cpuinitdata processor_power_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{ set_max_cstate, "Clevo 5600D", {
+ 	  DMI_MATCH(DMI_BIOS_VENDOR,"Phoenix Technologies LTD"),
+ 	  DMI_MATCH(DMI_BIOS_VERSION,"SHE845M0.86C.0013.D.0302131307")},
+@@ -111,6 +112,7 @@ static struct dmi_system_id __cpuinitdata processor_power_dmi_table[] = {
+ 	  DMI_MATCH(DMI_SYS_VENDOR, "ASUSTeK Computer Inc."),
+ 	  DMI_MATCH(DMI_PRODUCT_NAME,"L8400B series Notebook PC")},
+ 	 (void *)1},
++#endif
+ 	{},
+ };
+ 
+diff --git a/drivers/acpi/sleep.c b/drivers/acpi/sleep.c
+index 035920f..2dc313f 100644
+--- a/drivers/acpi/sleep.c
++++ b/drivers/acpi/sleep.c
+@@ -153,6 +153,7 @@ static int __init init_nvs_nosave(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id __initdata acpisleep_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 	.callback = init_old_suspend_ordering,
+ 	.ident = "Abit KN9 (nForce4 variant)",
+@@ -322,6 +323,7 @@ static struct dmi_system_id __initdata acpisleep_dmi_table[] = {
+ 		DMI_MATCH(DMI_PRODUCT_NAME, "K54HR"),
+ 		},
+ 	},
++#endif
+ 	{},
+ };
+ 
+diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
+index a33821c..382a0fb 100644
+--- a/drivers/acpi/thermal.c
++++ b/drivers/acpi/thermal.c
+@@ -1213,6 +1213,7 @@ static int thermal_psv(const struct dmi_system_id *d) {
+ }
+ 
+ static struct dmi_system_id thermal_dmi_table[] __initdata = {
++#ifdef CONFIG_DMI
+ 	/*
+ 	 * Award BIOS on this AOpen makes thermal control almost worthless.
+ 	 * http://bugzilla.kernel.org/show_bug.cgi?id=8842
+@@ -1249,6 +1250,7 @@ static struct dmi_system_id thermal_dmi_table[] __initdata = {
+ 		DMI_MATCH(DMI_BOARD_NAME, "7ZX"),
+ 		},
+ 	},
++#endif
+ 	{}
+ };
+ 
+diff --git a/drivers/acpi/video.c b/drivers/acpi/video.c
+index 0dc9ff6..da27f39 100644
+--- a/drivers/acpi/video.c
++++ b/drivers/acpi/video.c
+@@ -397,6 +397,7 @@ static int video_ignore_initial_backlight(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id video_dmi_table[] __initdata = {
++#ifdef CONFIG_DMI
+ 	/*
+ 	 * Broken _BQC workaround http://bugzilla.kernel.org/show_bug.cgi?id=13121
+ 	 */
+@@ -488,6 +489,7 @@ static struct dmi_system_id video_dmi_table[] __initdata = {
+ 		DMI_MATCH(DMI_PRODUCT_NAME, "HP Pavilion m4 Notebook PC"),
+ 		},
+ 	},
++#endif
+ 	{}
+ };
+ 
+diff --git a/drivers/acpi/video_detect.c b/drivers/acpi/video_detect.c
+index e6bd910..17bdc62 100644
+--- a/drivers/acpi/video_detect.c
++++ b/drivers/acpi/video_detect.c
+@@ -138,6 +138,7 @@ static int video_detect_force_vendor(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id video_detect_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	/* On Samsung X360, the BIOS will set a flag (VDRV) if generic
+ 	 * ACPI backlight device is used. This flag will definitively break
+ 	 * the backlight interface (even the vendor interface) untill next
+@@ -169,6 +170,7 @@ static struct dmi_system_id video_detect_dmi_table[] = {
+ 		DMI_MATCH(DMI_PRODUCT_NAME, "UL30A"),
+ 		},
+ 	},
++#endif
+ 	{ },
+ };
+ 
+diff --git a/drivers/ata/pata_ali.c b/drivers/ata/pata_ali.c
+index 61da069..22b23f3 100644
+--- a/drivers/ata/pata_ali.c
++++ b/drivers/ata/pata_ali.c
+@@ -48,6 +48,7 @@ static struct pci_dev *ali_isa_bridge;
+  */
+ 
+ static const struct dmi_system_id cable_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "HP Pavilion N5430",
+ 		.matches = {
+@@ -62,6 +63,7 @@ static const struct dmi_system_id cable_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "S1800-814"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/ata/pata_atiixp.c b/drivers/ata/pata_atiixp.c
+index 24e5105..2025417 100644
+--- a/drivers/ata/pata_atiixp.c
++++ b/drivers/ata/pata_atiixp.c
+@@ -35,6 +35,7 @@ enum {
+ };
+ 
+ static const struct dmi_system_id attixp_cable_override_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		/* Board has onboard PATA<->SATA converters */
+ 		.ident = "MSI E350DM-E33",
+@@ -43,6 +44,7 @@ static const struct dmi_system_id attixp_cable_override_dmi_table[] = {
+ 			DMI_MATCH(DMI_BOARD_NAME, "E350DM-E33(MS-7720)"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/ata/pata_cs5530.c b/drivers/ata/pata_cs5530.c
+index 48389ae..f359e76 100644
+--- a/drivers/ata/pata_cs5530.c
++++ b/drivers/ata/pata_cs5530.c
+@@ -176,6 +176,7 @@ static struct ata_port_operations cs5530_port_ops = {
+ };
+ 
+ static const struct dmi_system_id palmax_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Palmax PD1100",
+ 		.matches = {
+@@ -183,6 +184,7 @@ static const struct dmi_system_id palmax_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "Caddis"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/ata/pata_cs5536.c b/drivers/ata/pata_cs5536.c
+index 0448860..7111831 100644
+--- a/drivers/ata/pata_cs5536.c
++++ b/drivers/ata/pata_cs5536.c
+@@ -85,6 +85,7 @@ enum {
+  * missing resistor.
+  */
+ static const struct dmi_system_id udma_quirk_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Bachmann electronic OT200",
+ 		.matches = {
+@@ -93,6 +94,7 @@ static const struct dmi_system_id udma_quirk_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_VERSION, "1")
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/ata/pata_via.c b/drivers/ata/pata_via.c
+index 8d2a9fd..694b39a 100644
+--- a/drivers/ata/pata_via.c
++++ b/drivers/ata/pata_via.c
+@@ -125,6 +125,7 @@ static const struct via_isa_bridge {
+ };
+ 
+ static const struct dmi_system_id no_atapi_dma_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "AVERATEC 3200",
+ 		.matches = {
+@@ -132,6 +133,7 @@ static const struct dmi_system_id no_atapi_dma_dmi_table[] = {
+ 			DMI_MATCH(DMI_BOARD_NAME, "3200"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+@@ -144,6 +146,7 @@ struct via_port {
+  */
+ 
+ static const struct dmi_system_id cable_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Acer Ferrari 3400",
+ 		.matches = {
+@@ -151,6 +154,7 @@ static const struct dmi_system_id cable_dmi_table[] = {
+ 			DMI_MATCH(DMI_BOARD_NAME, "Ferrari 3400"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/char/i8k.c b/drivers/char/i8k.c
+index e6939e1..769f692 100644
+--- a/drivers/char/i8k.c
++++ b/drivers/char/i8k.c
+@@ -608,6 +608,7 @@ static void __exit i8k_exit_hwmon(void)
+ }
+ 
+ static struct dmi_system_id __initdata i8k_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Dell Inspiron",
+ 		.matches = {
+@@ -671,6 +672,7 @@ static struct dmi_system_id __initdata i8k_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "XPS L421X"),
+ 		},
+ 	},
++#endif
+         { }
+ };
+ 
+diff --git a/drivers/char/sonypi.c b/drivers/char/sonypi.c
+index bf2349db..d781b11 100644
+--- a/drivers/char/sonypi.c
++++ b/drivers/char/sonypi.c
+@@ -1498,6 +1498,7 @@ static struct platform_driver sonypi_driver = {
+ static struct platform_device *sonypi_platform_device;
+ 
+ static struct dmi_system_id __initdata sonypi_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Sony Vaio",
+ 		.matches = {
+@@ -1512,6 +1513,7 @@ static struct dmi_system_id __initdata sonypi_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "VGN-"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/cpufreq/acpi-cpufreq.c b/drivers/cpufreq/acpi-cpufreq.c
+index edc089e..ad04135 100644
+--- a/drivers/cpufreq/acpi-cpufreq.c
++++ b/drivers/cpufreq/acpi-cpufreq.c
+@@ -641,6 +641,7 @@ static int sw_any_bug_found(const struct dmi_system_id *d)
+ }
+ 
+ static const struct dmi_system_id sw_any_bug_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.callback = sw_any_bug_found,
+ 		.ident = "Supermicro Server X6DLP",
+@@ -650,6 +651,7 @@ static const struct dmi_system_id sw_any_bug_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "X6DLP"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/cpufreq/powernow-k7.c b/drivers/cpufreq/powernow-k7.c
+index 53888da..8e3a384 100644
+--- a/drivers/cpufreq/powernow-k7.c
++++ b/drivers/cpufreq/powernow-k7.c
+@@ -616,6 +616,7 @@ static int __cpuinit acer_cpufreq_pst(const struct dmi_system_id *d)
+  * Mention this, and disable cpufreq.
+  */
+ static struct dmi_system_id __cpuinitdata powernow_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.callback = acer_cpufreq_pst,
+ 		.ident = "Acer Aspire",
+@@ -624,6 +625,7 @@ static struct dmi_system_id __cpuinitdata powernow_dmi_table[] = {
+ 			DMI_MATCH(DMI_BIOS_VERSION, "3A71"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/hwmon/acpi_power_meter.c b/drivers/hwmon/acpi_power_meter.c
+index 6351aba..6d3de4c 100644
+--- a/drivers/hwmon/acpi_power_meter.c
++++ b/drivers/hwmon/acpi_power_meter.c
+@@ -971,12 +971,14 @@ static int __init enable_cap_knobs(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id __initdata pm_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		enable_cap_knobs, "IBM Active Energy Manager",
+ 		{
+ 			DMI_MATCH(DMI_SYS_VENDOR, "IBM")
+ 		},
+ 	},
++#endif
+ 	{}
+ };
+ 
+diff --git a/drivers/i2c/busses/i2c-i801.c b/drivers/i2c/busses/i2c-i801.c
+index 783fa75..d5deacd 100644
+--- a/drivers/i2c/busses/i2c-i801.c
++++ b/drivers/i2c/busses/i2c-i801.c
+@@ -972,6 +972,7 @@ static struct i801_mux_config i801_mux_config_asus_z8_d18 = {
+ };
+ 
+ static const struct dmi_system_id mux_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.matches = {
+ 			DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
+@@ -1035,6 +1036,7 @@ static const struct dmi_system_id mux_dmi_table[] = {
+ 		},
+ 		.driver_data = &i801_mux_config_asus_z8_d12,
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/ide/alim15x3.c b/drivers/ide/alim15x3.c
+index 36f76e2..6eaa63d 100644
+--- a/drivers/ide/alim15x3.c
++++ b/drivers/ide/alim15x3.c
+@@ -334,6 +334,7 @@ out:
+  */
+ 
+ static const struct dmi_system_id cable_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "HP Pavilion N5430",
+ 		.matches = {
+@@ -348,6 +349,7 @@ static const struct dmi_system_id cable_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "S1800-814"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/ide/via82cxxx.c b/drivers/ide/via82cxxx.c
+index 01464f1..d38502f 100644
+--- a/drivers/ide/via82cxxx.c
++++ b/drivers/ide/via82cxxx.c
+@@ -355,6 +355,7 @@ static int init_chipset_via82cxxx(struct pci_dev *dev)
+  */
+ 
+ static const struct dmi_system_id cable_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Acer Ferrari 3400",
+ 		.matches = {
+@@ -362,6 +363,7 @@ static const struct dmi_system_id cable_dmi_table[] = {
+ 			DMI_MATCH(DMI_BOARD_NAME, "Ferrari 3400"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/input/mouse/lifebook.c b/drivers/input/mouse/lifebook.c
+index 2c4db63..d51902c 100644
+--- a/drivers/input/mouse/lifebook.c
++++ b/drivers/input/mouse/lifebook.c
+@@ -45,6 +45,7 @@ static int lifebook_set_6byte_proto(const struct dmi_system_id *d)
+ }
+ 
+ static const struct dmi_system_id __initconst lifebook_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		/* FLORA-ie 55mi */
+ 		.matches = {
+@@ -123,6 +124,7 @@ static const struct dmi_system_id __initconst lifebook_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "LifeBook B142"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/input/touchscreen/htcpen.c b/drivers/input/touchscreen/htcpen.c
+index 6c4fb84..2df4f44 100644
+--- a/drivers/input/touchscreen/htcpen.c
++++ b/drivers/input/touchscreen/htcpen.c
+@@ -222,6 +222,7 @@ static struct isa_driver htcpen_isa_driver = {
+ };
+ 
+ static struct dmi_system_id __initdata htcshift_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Shift",
+ 		.matches = {
+@@ -229,6 +230,7 @@ static struct dmi_system_id __initdata htcshift_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "Shift"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(dmi, htcshift_dmi_table);
+diff --git a/drivers/leds/leds-clevo-mail.c b/drivers/leds/leds-clevo-mail.c
+index 6a8405d..527ae81 100644
+--- a/drivers/leds/leds-clevo-mail.c
++++ b/drivers/leds/leds-clevo-mail.c
+@@ -41,6 +41,7 @@ static int __init clevo_mail_led_dmi_callback(const struct dmi_system_id *id)
+  * possible.
+  */
+ static struct dmi_system_id __initdata clevo_mail_led_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.callback = clevo_mail_led_dmi_callback,
+ 		.ident = "Clevo D410J",
+@@ -87,6 +88,7 @@ static struct dmi_system_id __initdata clevo_mail_led_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_VERSION, "Rev. A1")
+ 		}
+ 	},
++#endif
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(dmi, clevo_mail_led_dmi_table);
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index c879969..8634717 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -2399,6 +2399,7 @@ static struct pci_driver rhine_driver = {
+ };
+ 
+ static struct dmi_system_id __initdata rhine_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "EPIA-M",
+ 		.matches = {
+@@ -2413,6 +2414,7 @@ static struct dmi_system_id __initdata rhine_dmi_table[] = {
+ 			DMI_MATCH(DMI_BIOS_VERSION, "6.00 PG"),
+ 		},
+ 	},
++#endif
+ 	{ NULL }
+ };
+ 
+diff --git a/drivers/pci/pcie/portdrv_pci.c b/drivers/pci/pcie/portdrv_pci.c
+index ce8acc7..5904c9f 100644
+--- a/drivers/pci/pcie/portdrv_pci.c
++++ b/drivers/pci/pcie/portdrv_pci.c
+@@ -403,6 +403,7 @@ static int __init dmi_pcie_pme_disable_msi(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id __initdata pcie_portdrv_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	/*
+ 	 * Boxes that should not use MSI for PCIe PME signaling.
+ 	 */
+@@ -416,6 +417,7 @@ static struct dmi_system_id __initdata pcie_portdrv_dmi_table[] = {
+ 		     },
+ 	 },
+ 	 {}
++#endif
+ };
+ 
+ static int __init pcie_portdrv_init(void)
+diff --git a/drivers/platform/x86/acer-wmi.c b/drivers/platform/x86/acer-wmi.c
+index 59a8d32..dbccdb2 100644
+--- a/drivers/platform/x86/acer-wmi.c
++++ b/drivers/platform/x86/acer-wmi.c
+@@ -540,6 +540,7 @@ static int video_set_backlight_video_vendor(const struct dmi_system_id *d)
+ }
+ 
+ static const struct dmi_system_id video_vendor_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.callback = video_set_backlight_video_vendor,
+ 		.ident = "Acer TravelMate 4750",
+@@ -583,6 +584,7 @@ static const struct dmi_system_id video_vendor_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "KAV80"),
+ 		},
+ 	},
++#endif
+ 	{}
+ };
+ 
+diff --git a/drivers/platform/x86/chromeos_laptop.c b/drivers/platform/x86/chromeos_laptop.c
+index 3e5b4497..f6302e1 100644
+--- a/drivers/platform/x86/chromeos_laptop.c
++++ b/drivers/platform/x86/chromeos_laptop.c
+@@ -302,6 +302,7 @@ static int __init setup_tsl2563_als(const struct dmi_system_id *id)
+ }
+ 
+ static struct dmi_system_id __initdata chromeos_laptop_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Samsung Series 5 550 - Touchpad",
+ 		.matches = {
+@@ -377,6 +378,7 @@ static struct dmi_system_id __initdata chromeos_laptop_dmi_table[] = {
+ 		},
+ 		.callback = setup_tsl2563_als,
+ 	},
++#endif
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(dmi, chromeos_laptop_dmi_table);
+diff --git a/drivers/platform/x86/compal-laptop.c b/drivers/platform/x86/compal-laptop.c
+index 475cc52..b9a28d0 100644
+--- a/drivers/platform/x86/compal-laptop.c
++++ b/drivers/platform/x86/compal-laptop.c
+@@ -776,6 +776,7 @@ static int dmi_check_cb_extra(const struct dmi_system_id *id)
+ }
+ 
+ static struct dmi_system_id __initdata compal_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "FL90/IFL90",
+ 		.matches = {
+@@ -880,6 +881,7 @@ static struct dmi_system_id __initdata compal_dmi_table[] = {
+ 		},
+ 		.callback = dmi_check_cb_extra
+ 	},
++#endif
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(dmi, compal_dmi_table);
+diff --git a/drivers/platform/x86/fujitsu-laptop.c b/drivers/platform/x86/fujitsu-laptop.c
+index 1c9386e..f2f8ae8 100644
+--- a/drivers/platform/x86/fujitsu-laptop.c
++++ b/drivers/platform/x86/fujitsu-laptop.c
+@@ -625,6 +625,7 @@ static int dmi_check_cb_p8010(const struct dmi_system_id *id)
+ }
+ 
+ static struct dmi_system_id fujitsu_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 	 .ident = "Fujitsu Siemens S6410",
+ 	 .matches = {
+@@ -646,6 +647,7 @@ static struct dmi_system_id fujitsu_dmi_table[] = {
+ 		     DMI_MATCH(DMI_PRODUCT_NAME, "LifeBook P8010"),
+ 		     },
+ 	 .callback = dmi_check_cb_p8010},
++#endif
+ 	{}
+ };
+ 
+diff --git a/drivers/platform/x86/ibm_rtl.c b/drivers/platform/x86/ibm_rtl.c
+index 97c2be1..e5bcc4e 100644
+--- a/drivers/platform/x86/ibm_rtl.c
++++ b/drivers/platform/x86/ibm_rtl.c
+@@ -228,11 +228,13 @@ static void rtl_teardown_sysfs(void) {
+ 
+ 
+ static struct dmi_system_id __initdata ibm_rtl_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{                                                  \
+ 		.matches = {                               \
+ 			DMI_MATCH(DMI_SYS_VENDOR, "IBM"),  \
+ 		},                                         \
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/platform/x86/intel_oaktrail.c b/drivers/platform/x86/intel_oaktrail.c
+index f6f18cd..ba7bd21 100644
+--- a/drivers/platform/x86/intel_oaktrail.c
++++ b/drivers/platform/x86/intel_oaktrail.c
+@@ -304,6 +304,7 @@ static int dmi_check_cb(const struct dmi_system_id *id)
+ }
+ 
+ static struct dmi_system_id __initdata oaktrail_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "OakTrail platform",
+ 		.matches = {
+@@ -311,6 +312,7 @@ static struct dmi_system_id __initdata oaktrail_dmi_table[] = {
+ 		},
+ 		.callback = dmi_check_cb
+ 	},
++#endif
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(dmi, oaktrail_dmi_table);
+diff --git a/drivers/platform/x86/msi-laptop.c b/drivers/platform/x86/msi-laptop.c
+index 6b22938..41b6d43 100644
+--- a/drivers/platform/x86/msi-laptop.c
++++ b/drivers/platform/x86/msi-laptop.c
+@@ -606,6 +606,7 @@ static int dmi_check_cb(const struct dmi_system_id *dmi)
+ }
+ 
+ static struct dmi_system_id __initdata msi_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "MSI S270",
+ 		.matches = {
+@@ -716,6 +717,7 @@ static struct dmi_system_id __initdata msi_dmi_table[] = {
+ 		.driver_data = &quirk_load_scm_ro_model,
+ 		.callback = dmi_check_cb
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/platform/x86/samsung-laptop.c b/drivers/platform/x86/samsung-laptop.c
+index d1f03005..cc0ec3a 100644
+--- a/drivers/platform/x86/samsung-laptop.c
++++ b/drivers/platform/x86/samsung-laptop.c
+@@ -1436,6 +1436,7 @@ static int __init samsung_dmi_matched(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id __initdata samsung_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.matches = {
+ 			DMI_MATCH(DMI_SYS_VENDOR,
+@@ -1534,6 +1535,7 @@ static struct dmi_system_id __initdata samsung_dmi_table[] = {
+ 		},
+ 	 .driver_data = &samsung_broken_acpi_video,
+ 	},
++#endif
+ 	{ },
+ };
+ MODULE_DEVICE_TABLE(dmi, samsung_dmi_table);
+diff --git a/drivers/platform/x86/samsung-q10.c b/drivers/platform/x86/samsung-q10.c
+index 1a90b62..dcb997f 100644
+--- a/drivers/platform/x86/samsung-q10.c
++++ b/drivers/platform/x86/samsung-q10.c
+@@ -131,6 +131,7 @@ static int __init dmi_check_callback(const struct dmi_system_id *id)
+ }
+ 
+ static struct dmi_system_id __initdata samsungq10_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Samsung Q10",
+ 		.matches = {
+@@ -163,6 +164,7 @@ static struct dmi_system_id __initdata samsungq10_dmi_table[] = {
+ 		},
+ 		.callback = dmi_check_callback,
+ 	},
++#endif
+ 	{ },
+ };
+ MODULE_DEVICE_TABLE(dmi, samsungq10_dmi_table);
+diff --git a/drivers/platform/x86/sony-laptop.c b/drivers/platform/x86/sony-laptop.c
+index 2ac045f..d1797c3 100644
+--- a/drivers/platform/x86/sony-laptop.c
++++ b/drivers/platform/x86/sony-laptop.c
+@@ -4474,6 +4474,7 @@ static struct acpi_driver sony_pic_driver = {
+ };
+ 
+ static struct dmi_system_id __initdata sonypi_dmi_table[] = {
++#ifdef CONFIG_DMI
+ 	{
+ 		.ident = "Sony Vaio",
+ 		.matches = {
+@@ -4488,6 +4489,7 @@ static struct dmi_system_id __initdata sonypi_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "VGN-"),
+ 		},
+ 	},
++#endif
+ 	{ }
+ };
+ 
+diff --git a/drivers/pnp/pnpbios/core.c b/drivers/pnp/pnpbios/core.c
+index 9b86a01..d012208 100644
+--- a/drivers/pnp/pnpbios/core.c
++++ b/drivers/pnp/pnpbios/core.c
+@@ -488,6 +488,7 @@ static int __init exploding_pnp_bios(const struct dmi_system_id *d)
+ }
+ 
+ static struct dmi_system_id pnpbios_dmi_table[] __initdata = {
++#ifdef CONFIG_DMI
+ 	{			/* PnPBIOS GPF on boot */
+ 	 .callback = exploding_pnp_bios,
+ 	 .ident = "Higraded P14H",
+@@ -506,6 +507,7 @@ static struct dmi_system_id pnpbios_dmi_table[] __initdata = {
+ 		     DMI_MATCH(DMI_BOARD_NAME, "P4P800"),
+ 		     },
+ 	 },
++#endif
+ 	{}
+ };
+ 
+-- 
+1.7.12.1
+

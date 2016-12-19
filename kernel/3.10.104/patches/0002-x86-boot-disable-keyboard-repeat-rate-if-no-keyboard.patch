@@ -1,0 +1,33 @@
+From 39989e5074006643bf83664948080c1f693a70cb Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Wed, 2 Feb 2011 12:35:55 +0100
+Subject: [PATCH 02/13] x86/boot: disable keyboard repeat rate if no keyboard
+ is enabled
+
+---
+ arch/x86/boot/main.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/x86/boot/main.c b/arch/x86/boot/main.c
+index cf6083d..0cbb6aa 100644
+--- a/arch/x86/boot/main.c
++++ b/arch/x86/boot/main.c
+@@ -63,6 +63,7 @@ static void copy_boot_params(void)
+  */
+ static void keyboard_init(void)
+ {
++#ifdef CONFIG_INPUT_KEYBOARD
+ 	struct biosregs ireg, oreg;
+ 	initregs(&ireg);
+ 
+@@ -72,6 +73,7 @@ static void keyboard_init(void)
+ 
+ 	ireg.ax = 0x0305;	/* Set keyboard repeat rate */
+ 	intcall(0x16, &ireg, NULL);
++#endif
+ }
+ 
+ /*
+-- 
+1.7.12.1
+

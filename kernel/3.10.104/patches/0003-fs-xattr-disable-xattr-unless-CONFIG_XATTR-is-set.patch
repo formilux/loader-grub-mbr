@@ -1,0 +1,61 @@
+From fc8cb45598d2d5f597737ef96f35e19fb849641b Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Wed, 2 Feb 2011 14:57:07 +0100
+Subject: [PATCH 03/13] fs/xattr: disable xattr unless CONFIG_XATTR is set
+
+Embedded platforms don't need this.
+---
+ fs/Makefile     |  3 ++-
+ kernel/sys_ni.c | 15 +++++++++++++++
+ 2 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/fs/Makefile b/fs/Makefile
+index 4fe6df3..d30006e 100644
+--- a/fs/Makefile
++++ b/fs/Makefile
+@@ -9,7 +9,7 @@ obj-y :=	open.o read_write.o file_table.o super.o \
+ 		char_dev.o stat.o exec.o pipe.o namei.o fcntl.o \
+ 		ioctl.o readdir.o select.o dcache.o inode.o \
+ 		attr.o bad_inode.o file.o filesystems.o namespace.o \
+-		seq_file.o xattr.o libfs.o fs-writeback.o \
++		seq_file.o libfs.o fs-writeback.o \
+ 		pnode.o splice.o sync.o utimes.o \
+ 		stack.o fs_struct.o statfs.o
+ 
+@@ -21,6 +21,7 @@ endif
+ 
+ obj-$(CONFIG_PROC_FS) += proc_namespace.o
+ 
++obj-$(CONFIG_XATTR)		+= xattr.o
+ obj-$(CONFIG_BLK_DEV_INTEGRITY) += bio-integrity.o
+ obj-y				+= notify/
+ obj-$(CONFIG_EPOLL)		+= eventpoll.o
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+index 7078052..05aad9a 100644
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -162,6 +162,21 @@ cond_syscall(sys_spu_run);
+ cond_syscall(sys_spu_create);
+ cond_syscall(sys_subpage_prot);
+ 
++/* syscalls which are generally not needed in embedded systems */
++/* extended attributes */
++cond_syscall(sys_setxattr);
++cond_syscall(sys_lsetxattr);
++cond_syscall(sys_fsetxattr);
++cond_syscall(sys_getxattr);
++cond_syscall(sys_lgetxattr);
++cond_syscall(sys_fgetxattr);
++cond_syscall(sys_listxattr);
++cond_syscall(sys_llistxattr);
++cond_syscall(sys_flistxattr);
++cond_syscall(sys_removexattr);
++cond_syscall(sys_lremovexattr);
++cond_syscall(sys_fremovexattr);
++
+ /* mmu depending weak syscall entries */
+ cond_syscall(sys_mprotect);
+ cond_syscall(sys_msync);
+-- 
+1.7.12.1
+

@@ -1,0 +1,767 @@
+From 4dd7a6a9005f03db848be4c99c10a40f08576374 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Mon, 19 Dec 2016 17:17:24 +0100
+Subject: [PATCH 06/13] fs: make direct I/O configurable
+
+This slightly reduces the overall kernel image size (4kB xz-compressed).
+---
+ fs/9p/vfs_addr.c    | 4 ++++
+ fs/Kconfig          | 4 ++++
+ fs/Makefile         | 3 ++-
+ fs/block_dev.c      | 4 ++++
+ fs/btrfs/inode.c    | 4 ++++
+ fs/ceph/addr.c      | 4 ++++
+ fs/ext2/inode.c     | 6 ++++++
+ fs/ext3/inode.c     | 6 ++++++
+ fs/ext4/indirect.c  | 2 ++
+ fs/ext4/inode.c     | 8 ++++++++
+ fs/fat/inode.c      | 4 ++++
+ fs/fuse/file.c      | 4 ++++
+ fs/gfs2/aops.c      | 6 ++++++
+ fs/hfs/inode.c      | 4 ++++
+ fs/hfsplus/inode.c  | 4 ++++
+ fs/jfs/inode.c      | 4 ++++
+ fs/nfs/direct.c     | 2 ++
+ fs/nfs/file.c       | 2 ++
+ fs/nilfs2/inode.c   | 4 ++++
+ fs/ocfs2/aops.c     | 6 ++++++
+ fs/reiserfs/inode.c | 6 ++++++
+ fs/udf/file.c       | 4 ++++
+ fs/udf/inode.c      | 4 ++++
+ fs/xfs/xfs_aops.c   | 4 ++++
+ 24 files changed, 102 insertions(+), 1 deletion(-)
+
+diff --git a/fs/9p/vfs_addr.c b/fs/9p/vfs_addr.c
+index 055562c..fc1b6ff 100644
+--- a/fs/9p/vfs_addr.c
++++ b/fs/9p/vfs_addr.c
+@@ -255,6 +255,7 @@ static int v9fs_launder_page(struct page *page)
+  * with an error.
+  *
+  */
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t
+ v9fs_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+ 	       loff_t pos, unsigned long nr_segs)
+@@ -270,6 +271,7 @@ v9fs_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+ 
+ 	return -EINVAL;
+ }
++#endif
+ 
+ static int v9fs_write_begin(struct file *filp, struct address_space *mapping,
+ 			    loff_t pos, unsigned len, unsigned flags,
+@@ -349,5 +351,7 @@ const struct address_space_operations v9fs_addr_operations = {
+ 	.releasepage = v9fs_release_page,
+ 	.invalidatepage = v9fs_invalidate_page,
+ 	.launder_page = v9fs_launder_page,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO = v9fs_direct_IO,
++#endif
+ };
+diff --git a/fs/Kconfig b/fs/Kconfig
+index c229f82..e8dbc89 100644
+--- a/fs/Kconfig
++++ b/fs/Kconfig
+@@ -20,6 +20,10 @@ config FS_XIP
+ 	depends on EXT2_FS_XIP
+ 	default y
+ 
++config DIRECT_IO
++	bool "Enable direct I/O (say Y)"
++	default y
++
+ source "fs/jbd/Kconfig"
+ source "fs/jbd2/Kconfig"
+ 
+diff --git a/fs/Makefile b/fs/Makefile
+index d30006e..4664b9a 100644
+--- a/fs/Makefile
++++ b/fs/Makefile
+@@ -14,7 +14,8 @@ obj-y :=	open.o read_write.o file_table.o super.o \
+ 		stack.o fs_struct.o statfs.o
+ 
+ ifeq ($(CONFIG_BLOCK),y)
+-obj-y +=	buffer.o bio.o block_dev.o direct-io.o mpage.o ioprio.o
++obj-y +=	buffer.o bio.o block_dev.o mpage.o ioprio.o
++obj-$(CONFIG_DIRECT_IO)		+= direct-io.o
+ else
+ obj-y +=	no-block.o
+ endif
+diff --git a/fs/block_dev.c b/fs/block_dev.c
+index 85f5c85..63b80cb 100644
+--- a/fs/block_dev.c
++++ b/fs/block_dev.c
+@@ -164,6 +164,7 @@ blkdev_get_block(struct inode *inode, sector_t iblock,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t
+ blkdev_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+ 			loff_t offset, unsigned long nr_segs)
+@@ -174,6 +175,7 @@ blkdev_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+ 	return __blockdev_direct_IO(rw, iocb, inode, I_BDEV(inode), iov, offset,
+ 				    nr_segs, blkdev_get_block, NULL, NULL, 0);
+ }
++#endif
+ 
+ int __sync_blockdev(struct block_device *bdev, int wait)
+ {
+@@ -1589,7 +1591,9 @@ static const struct address_space_operations def_blk_aops = {
+ 	.write_end	= blkdev_write_end,
+ 	.writepages	= generic_writepages,
+ 	.releasepage	= blkdev_releasepage,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO	= blkdev_direct_IO,
++#endif
+ };
+ 
+ const struct file_operations def_blk_fops = {
+diff --git a/fs/btrfs/inode.c b/fs/btrfs/inode.c
+index b5d13c4..a3d33ff 100644
+--- a/fs/btrfs/inode.c
++++ b/fs/btrfs/inode.c
+@@ -7349,6 +7349,7 @@ free_ordered:
+ 	bio_endio(dio_bio, ret);
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t check_direct_IO(struct btrfs_root *root, int rw, struct kiocb *iocb,
+ 			const struct iovec *iov, loff_t offset,
+ 			unsigned long nr_segs)
+@@ -7452,6 +7453,7 @@ out:
+ 
+ 	return ret;
+ }
++#endif
+ 
+ #define BTRFS_FIEMAP_FLAGS	(FIEMAP_FLAG_SYNC)
+ 
+@@ -8805,7 +8807,9 @@ static const struct address_space_operations btrfs_aops = {
+ 	.writepage	= btrfs_writepage,
+ 	.writepages	= btrfs_writepages,
+ 	.readpages	= btrfs_readpages,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO	= btrfs_direct_IO,
++#endif
+ 	.invalidatepage = btrfs_invalidatepage,
+ 	.releasepage	= btrfs_releasepage,
+ 	.set_page_dirty	= btrfs_set_page_dirty,
+diff --git a/fs/ceph/addr.c b/fs/ceph/addr.c
+index 5da06f0..b08b8f4 100644
+--- a/fs/ceph/addr.c
++++ b/fs/ceph/addr.c
+@@ -1175,6 +1175,7 @@ static int ceph_write_end(struct file *file, struct address_space *mapping,
+  * intercept O_DIRECT reads and writes early, this function should
+  * never get called.
+  */
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t ceph_direct_io(int rw, struct kiocb *iocb,
+ 			      const struct iovec *iov,
+ 			      loff_t pos, unsigned long nr_segs)
+@@ -1182,6 +1183,7 @@ static ssize_t ceph_direct_io(int rw, struct kiocb *iocb,
+ 	WARN_ON(1);
+ 	return -EINVAL;
+ }
++#endif
+ 
+ const struct address_space_operations ceph_aops = {
+ 	.readpage = ceph_readpage,
+@@ -1193,7 +1195,9 @@ const struct address_space_operations ceph_aops = {
+ 	.set_page_dirty = ceph_set_page_dirty,
+ 	.invalidatepage = ceph_invalidatepage,
+ 	.releasepage = ceph_releasepage,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO = ceph_direct_io,
++#endif
+ };
+ 
+ 
+diff --git a/fs/ext2/inode.c b/fs/ext2/inode.c
+index 99d84ce..00fc012 100644
+--- a/fs/ext2/inode.c
++++ b/fs/ext2/inode.c
+@@ -849,6 +849,7 @@ static sector_t ext2_bmap(struct address_space *mapping, sector_t block)
+ 	return generic_block_bmap(mapping,block,ext2_get_block);
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t
+ ext2_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+ 			loff_t offset, unsigned long nr_segs)
+@@ -864,6 +865,7 @@ ext2_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+ 		ext2_write_failed(mapping, offset + iov_length(iov, nr_segs));
+ 	return ret;
+ }
++#endif
+ 
+ static int
+ ext2_writepages(struct address_space *mapping, struct writeback_control *wbc)
+@@ -878,7 +880,9 @@ const struct address_space_operations ext2_aops = {
+ 	.write_begin		= ext2_write_begin,
+ 	.write_end		= ext2_write_end,
+ 	.bmap			= ext2_bmap,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO		= ext2_direct_IO,
++#endif
+ 	.writepages		= ext2_writepages,
+ 	.migratepage		= buffer_migrate_page,
+ 	.is_partially_uptodate	= block_is_partially_uptodate,
+@@ -897,7 +901,9 @@ const struct address_space_operations ext2_nobh_aops = {
+ 	.write_begin		= ext2_nobh_write_begin,
+ 	.write_end		= nobh_write_end,
+ 	.bmap			= ext2_bmap,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO		= ext2_direct_IO,
++#endif
+ 	.writepages		= ext2_writepages,
+ 	.migratepage		= buffer_migrate_page,
+ 	.error_remove_page	= generic_error_remove_page,
+diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
+index 23c7128..04e096b 100644
+--- a/fs/ext3/inode.c
++++ b/fs/ext3/inode.c
+@@ -1860,6 +1860,7 @@ static int ext3_releasepage(struct page *page, gfp_t wait)
+  * crashes then stale disk data _may_ be exposed inside the file. But current
+  * VFS code falls back into buffered path in that case so we are safe.
+  */
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t ext3_direct_IO(int rw, struct kiocb *iocb,
+ 			const struct iovec *iov, loff_t offset,
+ 			unsigned long nr_segs)
+@@ -1952,6 +1953,7 @@ out:
+ 				iov_length(iov, nr_segs), rw, ret);
+ 	return ret;
+ }
++#endif
+ 
+ /*
+  * Pages can be marked dirty completely asynchronously from ext3's journalling
+@@ -1981,7 +1983,9 @@ static const struct address_space_operations ext3_ordered_aops = {
+ 	.bmap			= ext3_bmap,
+ 	.invalidatepage		= ext3_invalidatepage,
+ 	.releasepage		= ext3_releasepage,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO		= ext3_direct_IO,
++#endif
+ 	.migratepage		= buffer_migrate_page,
+ 	.is_partially_uptodate  = block_is_partially_uptodate,
+ 	.error_remove_page	= generic_error_remove_page,
+@@ -1996,7 +2000,9 @@ static const struct address_space_operations ext3_writeback_aops = {
+ 	.bmap			= ext3_bmap,
+ 	.invalidatepage		= ext3_invalidatepage,
+ 	.releasepage		= ext3_releasepage,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO		= ext3_direct_IO,
++#endif
+ 	.migratepage		= buffer_migrate_page,
+ 	.is_partially_uptodate  = block_is_partially_uptodate,
+ 	.error_remove_page	= generic_error_remove_page,
+diff --git a/fs/ext4/indirect.c b/fs/ext4/indirect.c
+index b07a221..5e5a2a9 100644
+--- a/fs/ext4/indirect.c
++++ b/fs/ext4/indirect.c
+@@ -645,6 +645,7 @@ out:
+  * crashes then stale disk data _may_ be exposed inside the file. But current
+  * VFS code falls back into buffered path in that case so we are safe.
+  */
++#ifdef CONFIG_DIRECT_IO
+ ssize_t ext4_ind_direct_IO(int rw, struct kiocb *iocb,
+ 			   const struct iovec *iov, loff_t offset,
+ 			   unsigned long nr_segs)
+@@ -758,6 +759,7 @@ locked:
+ out:
+ 	return ret;
+ }
++#endif
+ 
+ /*
+  * Calculate the number of metadata blocks need to reserve
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index 221b582..598095f 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -3151,6 +3151,7 @@ out:
+  * if the machine crashes during the write.
+  *
+  */
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t ext4_ext_direct_IO(int rw, struct kiocb *iocb,
+ 			      const struct iovec *iov, loff_t offset,
+ 			      unsigned long nr_segs)
+@@ -3302,6 +3303,7 @@ static ssize_t ext4_direct_IO(int rw, struct kiocb *iocb,
+ 				iov_length(iov, nr_segs), rw, ret);
+ 	return ret;
+ }
++#endif
+ 
+ /*
+  * Pages can be marked dirty completely asynchronously from ext4's journalling
+@@ -3331,7 +3333,9 @@ static const struct address_space_operations ext4_aops = {
+ 	.bmap			= ext4_bmap,
+ 	.invalidatepage		= ext4_invalidatepage,
+ 	.releasepage		= ext4_releasepage,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO		= ext4_direct_IO,
++#endif
+ 	.migratepage		= buffer_migrate_page,
+ 	.is_partially_uptodate  = block_is_partially_uptodate,
+ 	.error_remove_page	= generic_error_remove_page,
+@@ -3347,7 +3351,9 @@ static const struct address_space_operations ext4_journalled_aops = {
+ 	.bmap			= ext4_bmap,
+ 	.invalidatepage		= ext4_journalled_invalidatepage,
+ 	.releasepage		= ext4_releasepage,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO		= ext4_direct_IO,
++#endif
+ 	.is_partially_uptodate  = block_is_partially_uptodate,
+ 	.error_remove_page	= generic_error_remove_page,
+ };
+@@ -3362,7 +3368,9 @@ static const struct address_space_operations ext4_da_aops = {
+ 	.bmap			= ext4_bmap,
+ 	.invalidatepage		= ext4_da_invalidatepage,
+ 	.releasepage		= ext4_releasepage,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO		= ext4_direct_IO,
++#endif
+ 	.migratepage		= buffer_migrate_page,
+ 	.is_partially_uptodate  = block_is_partially_uptodate,
+ 	.error_remove_page	= generic_error_remove_page,
+diff --git a/fs/fat/inode.c b/fs/fat/inode.c
+index 5d4513c..f9cd223 100644
+--- a/fs/fat/inode.c
++++ b/fs/fat/inode.c
+@@ -184,6 +184,7 @@ static int fat_write_end(struct file *file, struct address_space *mapping,
+ 	return err;
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t fat_direct_IO(int rw, struct kiocb *iocb,
+ 			     const struct iovec *iov,
+ 			     loff_t offset, unsigned long nr_segs)
+@@ -219,6 +220,7 @@ static ssize_t fat_direct_IO(int rw, struct kiocb *iocb,
+ 
+ 	return ret;
+ }
++#endif
+ 
+ static sector_t _fat_bmap(struct address_space *mapping, sector_t block)
+ {
+@@ -239,7 +241,9 @@ static const struct address_space_operations fat_aops = {
+ 	.writepages	= fat_writepages,
+ 	.write_begin	= fat_write_begin,
+ 	.write_end	= fat_write_end,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO	= fat_direct_IO,
++#endif
+ 	.bmap		= _fat_bmap
+ };
+ 
+diff --git a/fs/fuse/file.c b/fs/fuse/file.c
+index 35f604b..ce18bd3 100644
+--- a/fs/fuse/file.c
++++ b/fs/fuse/file.c
+@@ -2385,6 +2385,7 @@ static inline loff_t fuse_round_up(loff_t off)
+ 	return round_up(off, FUSE_MAX_PAGES_PER_REQ << PAGE_SHIFT);
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t
+ fuse_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+ 			loff_t offset, unsigned long nr_segs)
+@@ -2462,6 +2463,7 @@ fuse_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+ 
+ 	return ret;
+ }
++#endif
+ 
+ static long fuse_file_fallocate(struct file *file, int mode, loff_t offset,
+ 				loff_t length)
+@@ -2586,7 +2588,9 @@ static const struct address_space_operations fuse_file_aops  = {
+ 	.readpages	= fuse_readpages,
+ 	.set_page_dirty	= __set_page_dirty_nobuffers,
+ 	.bmap		= fuse_bmap,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO	= fuse_direct_IO,
++#endif
+ };
+ 
+ void fuse_init_file_inode(struct inode *inode)
+diff --git a/fs/gfs2/aops.c b/fs/gfs2/aops.c
+index 7625160..ca4d65f 100644
+--- a/fs/gfs2/aops.c
++++ b/fs/gfs2/aops.c
+@@ -993,6 +993,7 @@ static int gfs2_ok_for_dio(struct gfs2_inode *ip, int rw, loff_t offset)
+ 
+ 
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t gfs2_direct_IO(int rw, struct kiocb *iocb,
+ 			      const struct iovec *iov, loff_t offset,
+ 			      unsigned long nr_segs)
+@@ -1057,6 +1058,7 @@ out:
+ 	gfs2_holder_uninit(&gh);
+ 	return rv;
+ }
++#endif
+ 
+ /**
+  * gfs2_releasepage - free the metadata associated with a page
+@@ -1139,7 +1141,9 @@ static const struct address_space_operations gfs2_writeback_aops = {
+ 	.bmap = gfs2_bmap,
+ 	.invalidatepage = gfs2_invalidatepage,
+ 	.releasepage = gfs2_releasepage,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO = gfs2_direct_IO,
++#endif
+ 	.migratepage = buffer_migrate_page,
+ 	.is_partially_uptodate = block_is_partially_uptodate,
+ 	.error_remove_page = generic_error_remove_page,
+@@ -1156,7 +1160,9 @@ static const struct address_space_operations gfs2_ordered_aops = {
+ 	.bmap = gfs2_bmap,
+ 	.invalidatepage = gfs2_invalidatepage,
+ 	.releasepage = gfs2_releasepage,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO = gfs2_direct_IO,
++#endif
+ 	.migratepage = buffer_migrate_page,
+ 	.is_partially_uptodate = block_is_partially_uptodate,
+ 	.error_remove_page = generic_error_remove_page,
+diff --git a/fs/hfs/inode.c b/fs/hfs/inode.c
+index f9299d8..82565cf 100644
+--- a/fs/hfs/inode.c
++++ b/fs/hfs/inode.c
+@@ -124,6 +124,7 @@ static int hfs_releasepage(struct page *page, gfp_t mask)
+ 	return res ? try_to_free_buffers(page) : 0;
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t hfs_direct_IO(int rw, struct kiocb *iocb,
+ 		const struct iovec *iov, loff_t offset, unsigned long nr_segs)
+ {
+@@ -149,6 +150,7 @@ static ssize_t hfs_direct_IO(int rw, struct kiocb *iocb,
+ 
+ 	return ret;
+ }
++#endif
+ 
+ static int hfs_writepages(struct address_space *mapping,
+ 			  struct writeback_control *wbc)
+@@ -171,7 +173,9 @@ const struct address_space_operations hfs_aops = {
+ 	.write_begin	= hfs_write_begin,
+ 	.write_end	= generic_write_end,
+ 	.bmap		= hfs_bmap,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO	= hfs_direct_IO,
++#endif
+ 	.writepages	= hfs_writepages,
+ };
+ 
+diff --git a/fs/hfsplus/inode.c b/fs/hfsplus/inode.c
+index f833d35..49bee55 100644
+--- a/fs/hfsplus/inode.c
++++ b/fs/hfsplus/inode.c
+@@ -121,6 +121,7 @@ static int hfsplus_releasepage(struct page *page, gfp_t mask)
+ 	return res ? try_to_free_buffers(page) : 0;
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t hfsplus_direct_IO(int rw, struct kiocb *iocb,
+ 		const struct iovec *iov, loff_t offset, unsigned long nr_segs)
+ {
+@@ -146,6 +147,7 @@ static ssize_t hfsplus_direct_IO(int rw, struct kiocb *iocb,
+ 
+ 	return ret;
+ }
++#endif
+ 
+ static int hfsplus_writepages(struct address_space *mapping,
+ 			      struct writeback_control *wbc)
+@@ -168,7 +170,9 @@ const struct address_space_operations hfsplus_aops = {
+ 	.write_begin	= hfsplus_write_begin,
+ 	.write_end	= generic_write_end,
+ 	.bmap		= hfsplus_bmap,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO	= hfsplus_direct_IO,
++#endif
+ 	.writepages	= hfsplus_writepages,
+ };
+ 
+diff --git a/fs/jfs/inode.c b/fs/jfs/inode.c
+index 730f24e..866a677 100644
+--- a/fs/jfs/inode.c
++++ b/fs/jfs/inode.c
+@@ -330,6 +330,7 @@ static sector_t jfs_bmap(struct address_space *mapping, sector_t block)
+ 	return generic_block_bmap(mapping, block, jfs_get_block);
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t jfs_direct_IO(int rw, struct kiocb *iocb,
+ 	const struct iovec *iov, loff_t offset, unsigned long nr_segs)
+ {
+@@ -355,6 +356,7 @@ static ssize_t jfs_direct_IO(int rw, struct kiocb *iocb,
+ 
+ 	return ret;
+ }
++#endif
+ 
+ const struct address_space_operations jfs_aops = {
+ 	.readpage	= jfs_readpage,
+@@ -364,7 +366,9 @@ const struct address_space_operations jfs_aops = {
+ 	.write_begin	= jfs_write_begin,
+ 	.write_end	= nobh_write_end,
+ 	.bmap		= jfs_bmap,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO	= jfs_direct_IO,
++#endif
+ };
+ 
+ /*
+diff --git a/fs/nfs/direct.c b/fs/nfs/direct.c
+index 615c507..0d34f44 100644
+--- a/fs/nfs/direct.c
++++ b/fs/nfs/direct.c
+@@ -121,6 +121,7 @@ static inline int put_dreq(struct nfs_direct_req *dreq)
+  * shunt off direct read and write requests before the VFS gets them,
+  * so this method is only ever called for swap.
+  */
++#ifdef CONFIG_DIRECT_IO
+ ssize_t nfs_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov, loff_t pos, unsigned long nr_segs)
+ {
+ 	struct inode *inode = iocb->ki_filp->f_mapping->host;
+@@ -146,6 +147,7 @@ ssize_t nfs_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov, loff_
+ 				rw == WRITE ? true : false);
+ #endif /* CONFIG_NFS_SWAP */
+ }
++#endif
+ 
+ static void nfs_direct_release_pages(struct page **pages, unsigned int npages)
+ {
+diff --git a/fs/nfs/file.c b/fs/nfs/file.c
+index a87a44f..a5af3f4 100644
+--- a/fs/nfs/file.c
++++ b/fs/nfs/file.c
+@@ -537,7 +537,9 @@ const struct address_space_operations nfs_file_aops = {
+ 	.write_end = nfs_write_end,
+ 	.invalidatepage = nfs_invalidate_page,
+ 	.releasepage = nfs_release_page,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO = nfs_direct_IO,
++#endif
+ 	.migratepage = nfs_migrate_page,
+ 	.launder_page = nfs_launder_page,
+ 	.error_remove_page = generic_error_remove_page,
+diff --git a/fs/nilfs2/inode.c b/fs/nilfs2/inode.c
+index 587d699..0f72e73 100644
+--- a/fs/nilfs2/inode.c
++++ b/fs/nilfs2/inode.c
+@@ -304,6 +304,7 @@ static int nilfs_write_end(struct file *file, struct address_space *mapping,
+ 	return err ? : copied;
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t
+ nilfs_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+ 		loff_t offset, unsigned long nr_segs)
+@@ -334,6 +335,7 @@ nilfs_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+ 
+ 	return size;
+ }
++#endif
+ 
+ const struct address_space_operations nilfs_aops = {
+ 	.writepage		= nilfs_writepage,
+@@ -345,7 +347,9 @@ const struct address_space_operations nilfs_aops = {
+ 	.write_end		= nilfs_write_end,
+ 	/* .releasepage		= nilfs_releasepage, */
+ 	.invalidatepage		= block_invalidatepage,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO		= nilfs_direct_IO,
++#endif
+ 	.is_partially_uptodate  = block_is_partially_uptodate,
+ };
+ 
+diff --git a/fs/ocfs2/aops.c b/fs/ocfs2/aops.c
+index f998c60..6c9bad9 100644
+--- a/fs/ocfs2/aops.c
++++ b/fs/ocfs2/aops.c
+@@ -508,6 +508,7 @@ bail:
+  * Note that we never bother to allocate blocks here, and thus ignore the
+  * create argument.
+  */
++#ifdef CONFIG_DIRECT_IO
+ static int ocfs2_direct_IO_get_blocks(struct inode *inode, sector_t iblock,
+ 				     struct buffer_head *bh_result, int create)
+ {
+@@ -597,6 +598,7 @@ static void ocfs2_dio_end_io(struct kiocb *iocb,
+ 	if (is_async)
+ 		aio_complete(iocb, ret, 0);
+ }
++#endif
+ 
+ /*
+  * ocfs2_invalidatepage() and ocfs2_releasepage() are shamelessly stolen
+@@ -619,6 +621,7 @@ static int ocfs2_releasepage(struct page *page, gfp_t wait)
+ 	return jbd2_journal_try_to_free_buffers(journal, page, wait);
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t ocfs2_direct_IO(int rw,
+ 			       struct kiocb *iocb,
+ 			       const struct iovec *iov,
+@@ -644,6 +647,7 @@ static ssize_t ocfs2_direct_IO(int rw,
+ 				    ocfs2_direct_IO_get_blocks,
+ 				    ocfs2_dio_end_io, NULL, 0);
+ }
++#endif
+ 
+ static void ocfs2_figure_cluster_boundaries(struct ocfs2_super *osb,
+ 					    u32 cpos,
+@@ -2103,7 +2107,9 @@ const struct address_space_operations ocfs2_aops = {
+ 	.write_begin		= ocfs2_write_begin,
+ 	.write_end		= ocfs2_write_end,
+ 	.bmap			= ocfs2_bmap,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO		= ocfs2_direct_IO,
++#endif
+ 	.invalidatepage		= ocfs2_invalidatepage,
+ 	.releasepage		= ocfs2_releasepage,
+ 	.migratepage		= buffer_migrate_page,
+diff --git a/fs/reiserfs/inode.c b/fs/reiserfs/inode.c
+index 3616644..1bce5d6 100644
+--- a/fs/reiserfs/inode.c
++++ b/fs/reiserfs/inode.c
+@@ -462,6 +462,7 @@ static int reiserfs_get_block_create_0(struct inode *inode, sector_t block,
+ 
+ /* This is special helper for reiserfs_get_block in case we are executing
+    direct_IO request. */
++#ifdef CONFIG_DIRECT_IO
+ static int reiserfs_get_blocks_direct_io(struct inode *inode,
+ 					 sector_t iblock,
+ 					 struct buffer_head *bh_result,
+@@ -507,6 +508,7 @@ static int reiserfs_get_blocks_direct_io(struct inode *inode,
+       out:
+ 	return ret;
+ }
++#endif
+ 
+ /*
+ ** helper function for when reiserfs_get_block is called for a hole
+@@ -3072,6 +3074,7 @@ static int reiserfs_releasepage(struct page *page, gfp_t unused_gfp_flags)
+ 
+ /* We thank Mingming Cao for helping us understand in great detail what
+    to do in this section of the code. */
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t reiserfs_direct_IO(int rw, struct kiocb *iocb,
+ 				  const struct iovec *iov, loff_t offset,
+ 				  unsigned long nr_segs)
+@@ -3099,6 +3102,7 @@ static ssize_t reiserfs_direct_IO(int rw, struct kiocb *iocb,
+ 
+ 	return ret;
+ }
++#endif
+ 
+ int reiserfs_setattr(struct dentry *dentry, struct iattr *attr)
+ {
+@@ -3248,6 +3252,8 @@ const struct address_space_operations reiserfs_address_space_operations = {
+ 	.write_begin = reiserfs_write_begin,
+ 	.write_end = reiserfs_write_end,
+ 	.bmap = reiserfs_aop_bmap,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO = reiserfs_direct_IO,
++#endif
+ 	.set_page_dirty = reiserfs_set_page_dirty,
+ };
+diff --git a/fs/udf/file.c b/fs/udf/file.c
+index 29569dd..1af577e 100644
+--- a/fs/udf/file.c
++++ b/fs/udf/file.c
+@@ -118,6 +118,7 @@ static int udf_adinicb_write_end(struct file *file,
+ 	return simple_write_end(file, mapping, pos, len, copied, page, fsdata);
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t udf_adinicb_direct_IO(int rw, struct kiocb *iocb,
+ 				     const struct iovec *iov,
+ 				     loff_t offset, unsigned long nr_segs)
+@@ -125,13 +126,16 @@ static ssize_t udf_adinicb_direct_IO(int rw, struct kiocb *iocb,
+ 	/* Fallback to buffered I/O. */
+ 	return 0;
+ }
++#endif
+ 
+ const struct address_space_operations udf_adinicb_aops = {
+ 	.readpage	= udf_adinicb_readpage,
+ 	.writepage	= udf_adinicb_writepage,
+ 	.write_begin	= udf_adinicb_write_begin,
+ 	.write_end	= udf_adinicb_write_end,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO	= udf_adinicb_direct_IO,
++#endif
+ };
+ 
+ static ssize_t udf_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
+diff --git a/fs/udf/inode.c b/fs/udf/inode.c
+index 5c1120a..5b13ff9 100644
+--- a/fs/udf/inode.c
++++ b/fs/udf/inode.c
+@@ -216,6 +216,7 @@ static int udf_write_begin(struct file *file, struct address_space *mapping,
+ 	return ret;
+ }
+ 
++#ifdef CONFIG_DIRECT_IO
+ static ssize_t udf_direct_IO(int rw, struct kiocb *iocb,
+ 			     const struct iovec *iov,
+ 			     loff_t offset, unsigned long nr_segs)
+@@ -231,6 +232,7 @@ static ssize_t udf_direct_IO(int rw, struct kiocb *iocb,
+ 		udf_write_failed(mapping, offset + iov_length(iov, nr_segs));
+ 	return ret;
+ }
++#endif
+ 
+ static sector_t udf_bmap(struct address_space *mapping, sector_t block)
+ {
+@@ -244,7 +246,9 @@ const struct address_space_operations udf_aops = {
+ 	.writepages	= udf_writepages,
+ 	.write_begin	= udf_write_begin,
+ 	.write_end	= generic_write_end,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO	= udf_direct_IO,
++#endif
+ 	.bmap		= udf_bmap,
+ };
+ 
+diff --git a/fs/xfs/xfs_aops.c b/fs/xfs/xfs_aops.c
+index cfbb4c1..ddc7886 100644
+--- a/fs/xfs/xfs_aops.c
++++ b/fs/xfs/xfs_aops.c
+@@ -1383,6 +1383,7 @@ xfs_get_blocks_direct(
+  * can't start transactions.  In that case offload the I/O completion to
+  * the workqueues we also use for buffered I/O completion.
+  */
++#ifdef CONFIG_DIRECT_IO
+ STATIC void
+ xfs_end_io_direct_write(
+ 	struct kiocb		*iocb,
+@@ -1470,6 +1471,7 @@ out_destroy_ioend:
+ 	xfs_destroy_ioend(ioend);
+ 	return ret;
+ }
++#ifdef CONFIG_DIRECT_IO
+ 
+ /*
+  * Punch out the delalloc blocks we have already allocated.
+@@ -1732,7 +1734,9 @@ const struct address_space_operations xfs_address_space_operations = {
+ 	.write_begin		= xfs_vm_write_begin,
+ 	.write_end		= xfs_vm_write_end,
+ 	.bmap			= xfs_vm_bmap,
++#ifdef CONFIG_DIRECT_IO
+ 	.direct_IO		= xfs_vm_direct_IO,
++#endif
+ 	.migratepage		= buffer_migrate_page,
+ 	.is_partially_uptodate  = block_is_partially_uptodate,
+ 	.error_remove_page	= generic_error_remove_page,
+-- 
+1.7.12.1
+

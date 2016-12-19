@@ -1,0 +1,62 @@
+From 91d6e1ad09a4a6720d608e160add46e541ff5583 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Mon, 19 Dec 2016 22:55:41 +0100
+Subject: [PATCH 09/13] net: igb: make ethtool diag code configurable
+
+Disabling it saves 2kB in the xz-compressed image.
+---
+ drivers/net/ethernet/intel/Kconfig           | 7 +++++++
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 0f6c609..1cf8e91 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -124,6 +124,13 @@ config IGB
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called igb.
+ 
++config IGB_DIAG
++	bool "Intel(R) PCI-Express Gigabit adapters diag support"
++	default y
++	depends on IGB
++	---help---
++	  Say Y if you want to enable the ethtool diag in the igb driver (+2kB).
++
+ config IGB_HWMON
+ 	bool "Intel(R) PCI-Express Gigabit adapters HWMON support"
+ 	default y
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 7876240..cd6af7a 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -999,6 +999,7 @@ struct igb_reg_test {
+ #define TABLE64_TEST_LO	5
+ #define TABLE64_TEST_HI	6
+ 
++#ifdef CONFIG_IGB_DIAG
+ /* i210 reg test */
+ static struct igb_reg_test reg_test_i210[] = {
+ 	{ E1000_FCAL,	   0x100, 1,  PATTERN_TEST, 0xFFFFFFFF, 0xFFFFFFFF },
+@@ -2036,6 +2037,7 @@ static void igb_diag_test(struct net_device *netdev,
+ 	}
+ 	msleep_interruptible(4 * 1000);
+ }
++#endif
+ 
+ static void igb_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ {
+@@ -2794,7 +2796,9 @@ static const struct ethtool_ops igb_ethtool_ops = {
+ 	.set_ringparam		= igb_set_ringparam,
+ 	.get_pauseparam		= igb_get_pauseparam,
+ 	.set_pauseparam		= igb_set_pauseparam,
++#ifdef CONFIG_IGB_DIAG
+ 	.self_test		= igb_diag_test,
++#endif
+ 	.get_strings		= igb_get_strings,
+ 	.set_phys_id		= igb_set_phys_id,
+ 	.get_sset_count		= igb_get_sset_count,
+-- 
+1.7.12.1
+
