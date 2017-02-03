@@ -1,0 +1,46 @@
+From 331a3a3bad5409b69a9aff3fcdbf0963e0e60456 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Fri, 3 Feb 2017 10:52:40 +0100
+Subject: tty: accept both DEL and BS as the erase character
+
+This avoids the trouble that people experience over certain misconfigured
+serial ports. Nothing forces us to have to choose between BS or DEL, so
+let's accept both in hard (in addition to the one configured via stty).
+---
+ drivers/tty/n_tty.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/tty/n_tty.c b/drivers/tty/n_tty.c
+index 6cfe401..4eca952 100644
+--- a/drivers/tty/n_tty.c
++++ b/drivers/tty/n_tty.c
+@@ -901,7 +901,7 @@ static void eraser(unsigned char c, struct tty_struct *tty)
+ 		/* process_output('\a', tty); */ /* what do you think? */
+ 		return;
+ 	}
+-	if (c == ERASE_CHAR(tty))
++	if (c == ERASE_CHAR(tty) || c == 8 || c == 127) // 8=BS, 127=DEL
+ 		kill_type = ERASE;
+ 	else if (c == WERASE_CHAR(tty))
+ 		kill_type = WERASE;
+@@ -1251,7 +1251,7 @@ send_signal:
+ 		c = '\r';
+ 
+ 	if (ldata->icanon) {
+-		if (c == ERASE_CHAR(tty) || c == KILL_CHAR(tty) ||
++		if (c == ERASE_CHAR(tty) || c == 8 || c == 127 || c == KILL_CHAR(tty) ||
+ 		    (c == WERASE_CHAR(tty) && L_IEXTEN(tty))) {
+ 			eraser(c, tty);
+ 			process_echoes(tty);
+@@ -1535,6 +1535,8 @@ static void n_tty_set_termios(struct tty_struct *tty, struct ktermios *old)
+ 
+ 		if (L_ICANON(tty)) {
+ 			set_bit(ERASE_CHAR(tty), ldata->process_char_map);
++			set_bit(8, ldata->process_char_map);
++			set_bit(127, ldata->process_char_map);
+ 			set_bit(KILL_CHAR(tty), ldata->process_char_map);
+ 			set_bit(EOF_CHAR(tty), ldata->process_char_map);
+ 			set_bit('\n', ldata->process_char_map);
+-- 
+1.7.12.1
+
