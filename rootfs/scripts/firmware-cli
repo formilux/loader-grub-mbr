@@ -326,7 +326,7 @@ do_test_system_partition() {
 
   flash=$FLASH_PART ; size=$FLASH_SIZE
 
-  if [ -n "$size" -a -z "${size##[0-9]*}" ] && [ $size -lt 10000 ]; then
+  if [ -n "$size" -a -z "${size##[0-9]*}" ] && [ $size -lt 8192 ]; then
     do_inform
     if [ $size -eq 0 ]; then
       do_error "Invalid partition : $flash"
