@@ -24,8 +24,8 @@ FIRMWARE_PART=
 
 # local network configuration
 NET_INTR=eth0
-NET_ADDR=
-NET_MASK=
+NET_ADDR=192.168.0.250
+NET_MASK=255.255.255.0
 NET_GWAY=
 NET_OK=
 
@@ -1049,6 +1049,28 @@ init_quiet_from_cmdline() {
   QUIET="$(sed -ne 's/.*\(^\|[ ]\)\(quiet\)\b.*/\2/p' /proc/cmdline 2>/dev/null)"
 }
 
+init_network() {
+  [ -n "$NET_INTR" ] || return 0
+
+  if ifconfig "$NET_INTR" 2>/dev/null | grep -q UP; then
+    # inet addr 192.168.0.250  Bcast 192.168.0.255  Mask 255.255.255.0
+    set -- $(ifconfig eth0 | grep Mask | tr ':' ' ') ; NET_ADDR=$3 ; NET_MASK=$7
+    set -- $(route | grep "^default") ; NET_GWAY=$2
+    if [ -n "$NET_INTR" -a -n "$NET_MASK" ]; then
+      NET_OK=1
+      return 0
+    fi
+  fi
+
+  [ -n "$NET_ADDR" -a -n "$NET_MASK" ] || return 0
+
+  if ifconfig $NET_INTR $NET_ADDR netmask $NET_MASK up >/dev/null 2>&1; then
+    NET_OK=1
+    do_inform "Network interface $NET_INTR set to $NET_ADDR/$NET_MASK"
+    [ -e /dev/lcd ] && (echo -n -e "[2J[HMaintenance mode\n$NET_ADDR" >/dev/lcd) 2>/dev/null
+  fi
+}
+
 ########### main ###########
 
 (clear; chvt 2; chvt 1) 2>/dev/null
@@ -1057,5 +1079,6 @@ do_inform " --- Firmware utility version $FW_VER --- "
 init_quiet_from_cmdline
 init_console_from_cmdline
 init_flash_from_cmdline
+init_network
 
 do_menu_main
