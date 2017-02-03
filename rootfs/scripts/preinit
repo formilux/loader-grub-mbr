@@ -67,10 +67,10 @@ ch 0600 0 0 10 200 /dev/net/tun
 }
 
 ec "Loading Firmware..."
-# tty->ttyS0 needed for Xmodem transfers. Keep a copy.
-ch 0666 0 5 5 0 tty.bak
-rm /dev/tty
-ln ttyS0 /dev/tty
+# tty->ttyS0 needed for Xmodem transfers with default busybox. Keep a copy.
+#ch 0666 0 5 5 0 tty.bak
+#rm /dev/tty
+#ln ttyS0 /dev/tty
 
 ec "Extracting busybox..."
 /bin/busybox --install -s

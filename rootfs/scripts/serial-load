@@ -1,10 +1,11 @@
 #!/bin/sh
 SPEED=${1:-115200}
 FILE=${2:-/tmp/file.rx}
-echo "Downloading at $SPEED bps file $FILE."
-oldcfg=$(stty -g)
-stty litout -cstopb clocal -crtscts raw $SPEED
-rx $FILE ; ret=$?
-stty $oldcfg
+TTY=${3:-/dev/ttyS0}
+echo "Downloading from $TTY at $SPEED bps file $FILE."
+oldcfg=$(stty -g < $TTY)
+stty litout -cstopb clocal -crtscts raw $SPEED < $TTY
+rx $FILE $TTY ; ret=$?
+stty $oldcfg < $TTY
 echo "Return code: $ret"
 exit $ret
