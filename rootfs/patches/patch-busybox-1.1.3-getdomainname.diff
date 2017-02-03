@@ -1,0 +1,25 @@
+This doesn't build with a recent uclibc because domainname() is not provided.
+We don't need it anyway, there's no point trying to fix it, so let's simply
+comment it out.
+
+--- busybox-1.1.3/libbb/login.c~	2006-03-22 22:16:22.000000000 +0100
++++ busybox-1.1.3/libbb/login.c	2017-02-03 12:07:23.204778552 +0100
+@@ -80,12 +80,12 @@
+ 						outbuf = uts.machine;
+ 						break;
+ 
+-					case 'D':
+-					case 'o':
+-						c = getdomainname(buf, sizeof(buf) - 1);
+-						buf[c >= 0 ? c : 0] = '\0'; 
+-						break;
+-
++//					case 'D':
++//					case 'o':
++//						c = getdomainname(buf, sizeof(buf) - 1);
++//						buf[c >= 0 ? c : 0] = '\0'; 
++//						break;
++//
+ 					case 'd':
+ 						strftime(buf, sizeof(buf), fmtstr_d, localtime(&t));
+ 						break;
