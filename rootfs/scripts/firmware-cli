@@ -10,8 +10,9 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
 # firmware version
-FW_VER=3.1
+FW_VER=3.2
 
+# serial speed, only for "rx". Console uses the cmdline speed.
 SERIAL_BAUD=115200
 DOWNLOAD_SAVE=N
 DOWNLOAD_IMAGE_FILE=/tmp/file.tgz
