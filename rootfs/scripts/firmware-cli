@@ -1071,6 +1071,13 @@ init_network() {
   fi
 }
 
+init_telnetd() {
+  [ -n "$NET_OK" ] || return 0
+  if ! ps | grep -v grep | grep -q telnetd; then
+    telnetd -l "$0" >/dev/null 2>&1
+  fi
+}
+
 ########### main ###########
 
 (clear; chvt 2; chvt 1) 2>/dev/null
@@ -1080,5 +1087,6 @@ init_quiet_from_cmdline
 init_console_from_cmdline
 init_flash_from_cmdline
 init_network
+init_telnetd
 
 do_menu_main
