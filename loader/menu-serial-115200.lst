@@ -4,7 +4,7 @@
 
 hiddenmenu
 
-serial --unit=0 --speed=9600
+serial --unit=0 --speed=115200
 terminal --timeout=3 console serial
 
 # Here comes the mapping between saved entries and usable entries. All
@@ -20,20 +20,20 @@ fallback 0 1 2
 title Image 1
    root (hd0,1)
    savedefault savemap
-   kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 img=active
+   kernel /sys/active/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,115200 panic=1 img=active
    initrd /sys/active/initrd.img 
 
 # image 1
 title Image 2
    root (hd0,1)
    savedefault savemap
-   kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,9600 panic=1 img=backup
+   kernel /sys/backup/kernel.img root=/dev/ram0 ro auto quiet console=ttyS0,115200 panic=1 img=backup
    initrd /sys/backup/initrd.img 
 
 # image 2
 title Maintenance Kernel
    root (hd0,0)
-   kernel /boot/firmware/firmware.img quiet console=ttyS0,9600 panic=1 img=maint acpi=noirq
+   kernel /boot/firmware/firmware.img quiet console=ttyS0,115200 panic=1 img=maint
 
 # image 3
 title Reboot
