@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/x86 3.10.108 Kernel Configuration
+# Linux/x86 3.10.104 Kernel Configuration
 #
 # CONFIG_64BIT is not set
 CONFIG_X86_32=y
@@ -691,7 +691,7 @@ CONFIG_ATA_PIIX=y
 # CONFIG_PATA_CS5520 is not set
 # CONFIG_PATA_CS5530 is not set
 # CONFIG_PATA_CS5535 is not set
-# CONFIG_PATA_CS5536 is not set
+CONFIG_PATA_CS5536=y
 # CONFIG_PATA_CYPRESS is not set
 # CONFIG_PATA_EFAR is not set
 # CONFIG_PATA_HPT366 is not set
