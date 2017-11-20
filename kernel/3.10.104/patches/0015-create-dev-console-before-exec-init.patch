@@ -1,0 +1,52 @@
+From 961893cadd487852f70462873a42bfbdffb8a871 Mon Sep 17 00:00:00 2001
+From: William Lallemand <wlallemand@exceliance.fr>
+Date: Thu, 11 Sep 2014 14:28:29 +0200
+Subject: create /dev/console before exec init
+
+shut off the "Warning: unable to open an initial console." by creating
+/dev/console
+---
+ init/main.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/init/main.c b/init/main.c
+index 2132ffd..d8f7ca6 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -854,6 +854,23 @@ static int __ref kernel_init(void *unused)
+ 	      "See Linux Documentation/init.txt for guidance.");
+ }
+ 
++/*
++ * Create a simple rootfs that is similar to the default initramfs
++ */
++static int __init default_rootfs(void)
++{
++
++	(void)sys_mkdir((const char __user __force *) "/dev", 0755);
++
++	(void)sys_mknod((const char __user __force *) "/dev/console",
++			S_IFCHR | S_IRUSR | S_IWUSR,
++			new_encode_dev(MKDEV(5, 1)));
++
++	(void)sys_mkdir((const char __user __force *) "/root", 0700);
++
++	return 0;
++}
++
+ static noinline void __init kernel_init_freeable(void)
+ {
+ 	/*
+@@ -885,6 +902,9 @@ static noinline void __init kernel_init_freeable(void)
+ 
+ 	do_basic_setup();
+ 
++	/* create a simple rootfs with /dev/console */
++	default_rootfs();
++
+ 	/* Open the /dev/console on the rootfs, this should never fail */
+ 	if (sys_open((const char __user *) "/dev/console", O_RDWR, 0) < 0)
+ 		pr_err("Warning: unable to open an initial console.\n");
+-- 
+1.7.12.1
+

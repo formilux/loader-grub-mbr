@@ -1,0 +1,26 @@
+From b54ad6121b78ca0e1c7315c8f52344535853accd Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Tue, 5 Aug 2014 18:41:32 +0200
+Subject: tcp: disable FASTRETRANS_DEBUG
+
+Removes some useless and confusing debug messages in the TCP stack.
+---
+ include/net/tcp.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 0cd1881..e47e338 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -18,7 +18,7 @@
+ #ifndef _TCP_H
+ #define _TCP_H
+ 
+-#define FASTRETRANS_DEBUG 1
++#define FASTRETRANS_DEBUG 0
+ 
+ #include <linux/list.h>
+ #include <linux/tcp.h>
+-- 
+1.7.12.1
+

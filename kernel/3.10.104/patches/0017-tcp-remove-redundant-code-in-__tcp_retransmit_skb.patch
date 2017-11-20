@@ -1,0 +1,52 @@
+From e1292838810c5d84bef4bd18417bc79322c97c9b Mon Sep 17 00:00:00 2001
+From: Neal Cardwell <ncardwell@google.com>
+Date: Wed, 16 Oct 2013 12:36:51 -0400
+Subject: tcp: remove redundant code in __tcp_retransmit_skb()
+
+Remove the specialized code in __tcp_retransmit_skb() that tries to trim
+any ACKed payload preceding a FIN before we retransmit (this was added
+in 1999 in v2.2.3pre3). This trimming code was made unreachable by the
+more general code added above it that uses tcp_trim_head() to trim any
+ACKed payload, with or without a FIN (this was added in "[NET]: Add
+segmentation offload support to TCP." in 2002 circa v2.5.33).
+
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 675297c904b419542a93de64afaf2a6bd72e35e3)
+---
+ net/ipv4/tcp_output.c | 15 ---------------
+ 1 file changed, 15 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 199cda1..947c783 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2356,21 +2356,6 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ 	tcp_retrans_try_collapse(sk, skb, cur_mss);
+ 
+-	/* Some Solaris stacks overoptimize and ignore the FIN on a
+-	 * retransmit when old data is attached.  So strip it off
+-	 * since it is cheap to do so and saves bytes on the network.
+-	 */
+-	if (skb->len > 0 &&
+-	    (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN) &&
+-	    tp->snd_una == (TCP_SKB_CB(skb)->end_seq - 1)) {
+-		if (!pskb_trim(skb, 0)) {
+-			/* Reuse, even though it does some unnecessary work */
+-			tcp_init_nondata_skb(skb, TCP_SKB_CB(skb)->end_seq - 1,
+-					     TCP_SKB_CB(skb)->tcp_flags);
+-			skb->ip_summed = CHECKSUM_NONE;
+-		}
+-	}
+-
+ 	/* Make a copy, if the first transmission SKB clone we made
+ 	 * is still in somebody's hands, else make a clone.
+ 	 */
+-- 
+1.7.12.1
+
